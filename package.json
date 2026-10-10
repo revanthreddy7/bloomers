@@ -1,0 +1,50 @@
+{
+  "name": "bloomers-v1",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:start": "node scripts/supabase.mjs start",
+    "db:stop": "node scripts/supabase.mjs stop",
+    "db:reset": "node scripts/supabase.mjs db reset --local",
+    "db:test": "node scripts/supabase.mjs test db",
+    "db:lint": "node scripts/supabase.mjs db lint --local --schema public --fail-on warning",
+    "env:local": "node scripts/setup-local-env.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.117.3",
+    "next": "15.5.27",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "3.3.7",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "15.5.27",
+    "prettier": "3.9.10",
+    "supabase": "2.120.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "vitest": "5.0.3"
+  },
+  "engines": {
+    "node": ">=22 <25"
+  },
+  "overrides": {
+    "postcss": "8.5.29"
+  }
+}

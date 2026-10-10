@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #f7f8ef;
+  color: #203f35;
+  font-family: Arial, Helvetica, sans-serif;
+}
+.shell {
+  min-height: 100vh;
+  max-width: 1180px;
+  margin: auto;
+  padding: 35px 6%;
+}
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  font-weight: 700;
+}
+.hero {
+  padding: 13vh 0 12vh;
+  max-width: 750px;
+}
+.mark {
+  background: #d7efbd;
+  border-radius: 22px;
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  font-size: 40px;
+}
+h1 {
+  font-size: clamp(58px, 9vw, 112px);
+  letter-spacing: -0.07em;
+  line-height: 0.98;
+  margin: 32px 0;
+}
+h1 em {
+  color: #7a9e62;
+  font-style: normal;
+}
+p {
+  font-size: clamp(18px, 2vw, 23px);
+  line-height: 1.55;
+  max-width: 600px;
+}
+.notice {
+  background: white;
+  border: 1px solid #dce5d3;
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 36px;
+  max-width: 600px;
+  line-height: 1.5;
+}
+footer {
+  color: #6c8575;
+  font-size: 13px;
+}
