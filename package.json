@@ -17,9 +17,11 @@
     "db:reset": "node scripts/supabase.mjs db reset --local",
     "db:test": "node scripts/supabase.mjs test db",
     "db:lint": "node scripts/supabase.mjs db lint --local --schema public --fail-on warning",
-    "env:local": "node scripts/setup-local-env.mjs"
+    "env:local": "node scripts/setup-local-env.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.117.3",
     "next": "15.5.27",
     "react": "19.3.0",
@@ -29,6 +31,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.3.7",
+    "@playwright/test": "1.64.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.20.5",
     "@types/react": "19.3.0",

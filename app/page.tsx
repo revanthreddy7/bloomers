@@ -1,3 +1,4 @@
+import Link from 'next/link';
 export default function Home() {
   return (
     <main className="shell">
@@ -14,11 +15,17 @@ export default function Home() {
           your progress, builds confidence, and grows with you.
         </p>
         <div className="notice">
-          We’re building the foundation. Student accounts and live lessons are
-          coming in the next phases.
+          We’re building the foundation. Parent accounts are ready. Live lessons
+          are coming in the next phases.
+        </div>
+        <div className="hero-actions">
+          <Link className="button" href="/auth/sign-up">
+            Create a parent account
+          </Link>
+          <Link href="/auth/sign-in">Sign in →</Link>
         </div>
       </section>
-      <footer>Bloomers V1 · Phase 0</footer>
+      <footer>Bloomers V1 · Phase 1</footer>
     </main>
   );
 }

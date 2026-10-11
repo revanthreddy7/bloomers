@@ -7,31 +7,6 @@ export type Json =
   | Json[];
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never;
-    };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json;
-          operationName?: string;
-          query?: string;
-          variables?: Json;
-        };
-        Returns: Json;
-      };
-    };
-    Enums: {
-      [_ in never]: never;
-    };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
   public: {
     Tables: {
       ai_runs: {
@@ -149,33 +124,74 @@ export type Database = {
           },
         ];
       };
+      consent_policies: {
+        Row: {
+          approved: boolean;
+          consent_type: string;
+          description: string;
+          version: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          approved?: boolean;
+          consent_type: string;
+          description: string;
+          version: string;
+        };
+        Update: {
+          approved?: boolean;
+          consent_type?: string;
+          description?: string;
+          version?: string;
+        };
+        Relationships: [];
+      };
       consents: {
         Row: {
           consent_type: string;
+          event_order: number;
           granted: boolean;
           id: string;
           parent_id: string;
+          policy_version: string;
           recorded_at: string;
+          request_id: string | null;
+          source: string;
           student_id: string;
         };
         ComputedFields: never;
         Insert: {
           consent_type: string;
+          event_order?: never;
           granted: boolean;
           id?: string;
           parent_id: string;
+          policy_version?: string;
           recorded_at?: string;
+          request_id?: string | null;
+          source?: string;
           student_id: string;
         };
         Update: {
           consent_type?: string;
+          event_order?: never;
           granted?: boolean;
           id?: string;
           parent_id?: string;
+          policy_version?: string;
           recorded_at?: string;
+          request_id?: string | null;
+          source?: string;
           student_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: 'consent_policy_fk';
+            columns: ['consent_type', 'policy_version'];
+            isOneToOne: false;
+            referencedRelation: 'consent_policies';
+            referencedColumns: ['consent_type', 'version'];
+          },
           {
             foreignKeyName: 'consent_relationship_fk';
             columns: ['parent_id', 'student_id'];
@@ -1163,27 +1179,46 @@ export type Database = {
       student_profiles: {
         Row: {
           created_at: string;
+          created_by: string | null;
+          creation_request_id: string | null;
           display_name: string;
+          grade: number | null;
           id: string;
+          learning_goals: string | null;
           role: Database['public']['Enums']['app_role'];
           user_id: string | null;
         };
         ComputedFields: never;
         Insert: {
           created_at?: string;
+          created_by?: string | null;
+          creation_request_id?: string | null;
           display_name: string;
+          grade?: number | null;
           id?: string;
+          learning_goals?: string | null;
           role?: Database['public']['Enums']['app_role'];
           user_id?: string | null;
         };
         Update: {
           created_at?: string;
+          created_by?: string | null;
+          creation_request_id?: string | null;
           display_name?: string;
+          grade?: number | null;
           id?: string;
+          learning_goals?: string | null;
           role?: Database['public']['Enums']['app_role'];
           user_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: 'student_profiles_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'parent_profiles';
+            referencedColumns: ['user_id'];
+          },
           {
             foreignKeyName: 'student_profiles_user_id_fkey';
             columns: ['user_id'];
@@ -1404,7 +1439,41 @@ export type Database = {
     };
     Functions: {
       can_read_student: { Args: { p_student: string }; Returns: boolean };
+      create_parent_student: {
+        Args: {
+          p_display_name: string;
+          p_grade: number;
+          p_learning_goals?: string;
+          p_request_id: string;
+        };
+        Returns: string;
+      };
       is_parent_of: { Args: { p_student: string }; Returns: boolean };
+      limit_identity_mutations: { Args: { actor: string }; Returns: undefined };
+      provision_parent: { Args: Record<PropertyKey, never>; Returns: string };
+      record_parent_consent: {
+        Args: {
+          p_consent_type: string;
+          p_granted: boolean;
+          p_policy_version: string;
+          p_request_id: string;
+          p_student_id: string;
+        };
+        Returns: string;
+      };
+      require_verified_parent: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
+      update_parent_student: {
+        Args: {
+          p_display_name: string;
+          p_grade: number;
+          p_learning_goals?: string;
+          p_student_id: string;
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       app_role: 'PARENT' | 'STUDENT' | 'ADMIN';
@@ -1533,9 +1602,6 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_role: ['PARENT', 'STUDENT', 'ADMIN'],

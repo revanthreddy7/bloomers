@@ -17,7 +17,7 @@ try {
     throw new Error('Not a local Supabase instance');
   writeFileSync(
     '.env.local',
-    `NEXT_PUBLIC_SUPABASE_URL=${API_URL}\nNEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}\nSUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}\n`,
+    `NEXT_PUBLIC_SUPABASE_URL=${API_URL}\nNEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}\nSUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}\nAPP_ORIGIN=http://localhost:3000\n`,
     { flag: 'wx', mode: 0o600 },
   );
   console.info(

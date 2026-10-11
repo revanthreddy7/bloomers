@@ -1,6 +1,6 @@
-# Bloomers V1 — Phase 0
+# Bloomers V1 — Phase 1
 
-Verified local development foundation for the persistent tutoring platform. Maya's workflows and the three-lesson pilot are planned, not implemented. The homepage is a foundation preview. `/api/health` checks application liveness, not database readiness.
+Verified foundation plus parent identity: signup, verified email, sign-in/out, password recovery, protected parent pages, student profiles, and versioned consent decisions. Maya and the three-lesson pilot remain planned. `/api/health` checks liveness, not database readiness.
 
 ## Run locally
 
@@ -42,7 +42,7 @@ Stop Supabase with `npm run db:stop` (retains database volumes). Stop Next.js wi
 | `npm run db:test`                             | pgTAP authorization and constraint tests                      |
 | `npm audit --omit=dev --audit-level=moderate` | Production dependency audit                                   |
 
-See the [verification report](docs/PHASE_0_VERIFICATION.md) for actual results. CI uses clean installs, application checks/build, a production audit, and a separate Supabase reset/lint/test job. GitHub execution requires pushing the repository and has not been observed locally.
+See the [Phase 0 report](docs/PHASE_0_VERIFICATION.md) and [Phase 1 report](docs/PHASE_1_VERIFICATION.md) for actual results. CI uses clean installs, application checks/build, a production audit, and a separate Supabase reset/lint/test job. GitHub execution requires pushing the repository and has not been observed locally.
 
 ## Modular monolith
 
@@ -63,9 +63,9 @@ Future identity, curriculum, learning, scheduling, lesson, assessment, homework,
 
 The initial migration creates 41 domain tables. An additive hardening migration restricts client privileges, adds constraints and FK indexes, and opens audited read policies. The seed provides five Grade 8 mathematics skills, five prerequisites, assessment metadata, and five private questions. It creates no student accounts.
 
-Parents read linked students; students read their own records. Nested records follow parent-row RLS. All browser writes are denied, including roles, relationships, consent, mastery, evidence, scheduling, assessment, and homework. An ADMIN role label grants no browser bypass. Raw lesson events/messages, question answers, memory, uploads, and operations have no client read policies. Parent reports are parent-only. Storage buckets and media collection are not provisioned.
+Parents read linked students; students read their own records. Nested records follow parent-row RLS. All direct browser table writes remain denied. Verified parents can invoke narrowly authorized identity RPCs to create/edit linked students and append consent decisions. Actors are derived from validated JWTs, never caller-provided parent IDs. Privileged learning state remains unwritable. An ADMIN role label grants no browser bypass. Raw lesson events/messages, question answers, memory, uploads, and operations have no client read policies. Parent reports are parent-only. Storage buckets and media collection are not provisioned.
 
-The service-role client bypasses RLS. **Future callers must authenticate and authorize the actor and target student before invoking it.** `server-only` prevents client imports. Public configuration rejects recognizable privileged keys. These protections do not replace authenticated application-service tests in Phase 1.
+The service-role client bypasses RLS. **Future callers must authenticate and authorize the actor and target student before invoking it.** `server-only` prevents client imports. Public configuration rejects recognizable privileged keys. The Phase 1 workflows use the authenticated SSR client and scoped RPCs, without service-role bypass. Service-role credentials are used only by local integration-test fixtures and the preserved future admin utility.
 
 Logs accept only approved operational fields. Student names, answers, prompts, tokens, audio, and video are not accepted by the logging API.
 
@@ -97,8 +97,39 @@ When a hosted environment is needed in a later phase:
 
 ## Limitations
 
-Signup, student provisioning, consent UX, dashboards, realtime teaching, learning rules, scheduling, uploads, and AI calls are not implemented. The schema establishes boundaries, not complete business workflows. Prerequisite-cycle prevention and full course enrollment validation need deterministic logic in their later phases.
+Dashboards, realtime teaching, learning rules, scheduling, uploads, student login, and AI calls are not implemented. Draft consent grants await approval; withdrawals and historical decisions are implemented. The schema establishes boundaries, not complete business workflows. Prerequisite-cycle prevention and full course enrollment validation need deterministic logic in their later phases.
 
 The production audit is clean at verification time. The full audit still reports five high development-only findings in Next ESLint plugin → fast-glob → micromatch → braces. No patched braces version was available. The PostCSS override fixes the runtime finding; do not use `npm audit fix --force` to downgrade the framework. Recheck on updates. See [ADR 0004](docs/architecture/0004-toolchain.md).
 
 Supabase's [database testing guidance](https://supabase.com/docs/guides/local-development/cli/testing-and-linting) describes the pgTAP and SQL lint workflow used here.
+
+## Test the parent flow
+
+1. Start the local Supabase stack and run `npm run dev`.
+2. Open http://localhost:3000/auth/sign-up and create a test parent account with a unique email and a password of at least 12 characters.
+3. Open the local mail viewer at http://localhost:54324. Choose the verification email and follow its link. Mail stays local; there is no SMTP purchase or external send.
+4. Add a student using a nickname, grade, and optional academic goal. Select their profile and edit it.
+5. Review separate capability policies. All shipped policies are draft: grants are disabled, and no media or AI capability is active. Record a withdrawal and check the preserved history.
+6. Sign out, sign back in, and verify the profiles persist. For recovery, use Forgot password and follow the local recovery email; the updated password should work and the old one should fail.
+
+Local auth uses exact localhost URLs, confirmed emails, 12-character minimum passwords, 15-minute access JWTs, centralized Auth rate limits, and a 60-second email cooldown. After changing `supabase/config.toml`, restart with `npm run db:stop` then `npm run db:start`; restart the app after editing environment variables. Existing `.env.local` files need `APP_ORIGIN=http://localhost:3000` (the setup script supplies it for new files).
+
+For real browser/API integration tests:
+
+```sh
+npx playwright install chromium
+npm run test:e2e
+```
+
+These tests require local Supabase, actual local keys in `.env.local`, and the configured Mailpit templates. They create synthetic local users and profiles; a local `db:reset` removes those fixtures when the data can be discarded. Traces and screenshots are disabled to avoid retaining tokens/passwords. Do not run these fixtures against hosted services. Playwright starts its own dev server; stop other app servers first, and do not run a production build concurrently with browser tests.
+
+## Hosted auth configuration (before any deployment)
+
+- Set `APP_ORIGIN` to the canonical HTTPS application origin. Do not derive email redirects from request Host headers.
+- Configure Supabase Site URL and an exact redirect allowlist for that origin; no wildcard production redirects.
+- Install the confirmation and recovery templates in `supabase/templates`, replacing SiteURL via Supabase's template variables, so email links reach `/auth/confirm` with the appropriate token hash and type.
+- Require confirmed email and at least 12-character passwords; configure token lifetime, secure password changes, custom SMTP, and [Supabase Auth rate limits](https://supabase.com/docs/guides/auth/rate-limits). The local TOML does not configure hosted projects automatically. Enable CAPTCHA or trusted edge protections if public signup requires additional abuse control.
+- Review log redaction for token-bearing URLs in hosting/CDN logs. The local Next configuration ignores auth callback request logging and sends no-referrer/no-store headers.
+- Supabase global sign-out revokes refresh sessions, but issued JWTs may remain valid until expiry. Review whether production needs stricter revocation checks.
+
+No hosted project, public deployment, paid service, approved legal policy, or student login is enabled by this work. Founder decisions are listed in [ADR 0006](docs/architecture/0006-consent-foundation.md).
