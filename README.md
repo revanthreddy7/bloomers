@@ -1,6 +1,6 @@
-# Bloomers V1 — Phase 2
+# Bloomers V1 — Phase 3
 
-Verified foundation plus parent identity: signup, verified email, sign-in/out, password recovery, protected parent pages, student profiles, and versioned consent decisions. Phase 2 adds a versioned curriculum engine and authenticated read-only explorer. Maya and the three-lesson pilot remain planned. `/api/health` checks liveness, not database readiness.
+Verified foundation plus parent identity: signup, verified email, sign-in/out, password recovery, protected parent pages, student profiles, and versioned consent decisions. Phase 2 adds a versioned curriculum engine and authenticated read-only explorer. Phase 3 adds atomic course enrollment, unassessed skill initialization, deterministic plans and timezone-aware schedules, and persistent student roadmaps. Maya and the three-lesson pilot remain planned. `/api/health` checks liveness, not database readiness.
 
 ## Run locally
 
@@ -44,7 +44,7 @@ Stop Supabase with `npm run db:stop` (retains database volumes). Stop Next.js wi
 | `npm run db:test`                             | pgTAP authorization and constraint tests                      |
 | `npm audit --omit=dev --audit-level=moderate` | Production dependency audit                                   |
 
-See the [Phase 0 report](docs/PHASE_0_VERIFICATION.md), [Phase 1 report](docs/PHASE_1_VERIFICATION.md), and [Phase 2 report](docs/PHASE_2_VERIFICATION.md) for actual results. CI uses clean installs, application checks/build, a production audit, and a separate Supabase reset/lint/test job. GitHub execution requires pushing the repository and has not been observed locally.
+See the [Phase 0 report](docs/PHASE_0_VERIFICATION.md), [Phase 1 report](docs/PHASE_1_VERIFICATION.md), [Phase 2 report](docs/PHASE_2_VERIFICATION.md), and [Phase 3 report](docs/PHASE_3_VERIFICATION.md) for actual results. CI uses clean installs, application checks/build, a production audit, and a separate Supabase reset/lint/test job. GitHub execution requires pushing the repository and has not been observed locally.
 
 ## Modular monolith
 
@@ -59,7 +59,7 @@ One Next.js deployment and one Supabase PostgreSQL database:
 - `scripts/`: local CLI and credential helpers.
 - `docs/architecture/`: architectural decisions and authorization boundaries.
 
-Identity and curriculum now use focused domain/feature modules. Future learning, scheduling, lesson, assessment, homework, memory, reporting, and AI services should follow those boundaries. UI calls authorized application services; deterministic services validate AI proposals before writing. Empty scaffolding and pretend implementations are intentionally absent. Read the [build brief](docs/BLOOMERS_V1_BUILD_BRIEF.md) before expanding scope.
+Identity, curriculum and initial planning now use focused domain/feature modules. Future learning, adaptive scheduling, lesson, assessment, homework, memory, reporting, and AI services should follow those boundaries. UI calls authorized application services; deterministic services validate AI proposals before writing. Empty scaffolding and pretend implementations are intentionally absent. Read the [build brief](docs/BLOOMERS_V1_BUILD_BRIEF.md) before expanding scope.
 
 ## Database and authorization
 
@@ -99,7 +99,7 @@ When a hosted environment is needed in a later phase:
 
 ## Limitations
 
-Dashboards, realtime teaching, learning rules, scheduling, uploads, student login, and AI calls are not implemented. Draft consent grants await approval; withdrawals and historical decisions are implemented. The schema establishes boundaries, not complete business workflows. Version-scoped prerequisite graphs now reject cycles, and enrollment/plan version pins prevent automatic curriculum transitions. Enrollment and scheduling workflows remain Phase 3.
+Dashboards, realtime teaching, learning rules, adaptive scheduling, uploads, student login, and AI calls are not implemented. Draft consent grants await approval; withdrawals and historical decisions are implemented. The schema establishes boundaries, not complete business workflows. Version-scoped prerequisite graphs now reject cycles, and enrollment/plan version pins prevent automatic curriculum transitions. Initial enrollment and scheduling are implemented; evidence-based personalization and adaptive recalculation remain later work.
 
 The production audit is clean at verification time. The full audit still reports five high development-only findings in Next ESLint plugin → fast-glob → micromatch → braces. No patched braces version was available. The PostCSS override fixes the runtime finding; do not use `npm audit fix --force` to downgrade the framework. Recheck on updates. See [ADR 0004](docs/architecture/0004-toolchain.md).
 
@@ -144,4 +144,16 @@ Published snapshots are immutable. Draft saves use revision checks; publication 
 
 Read [Curriculum foundation](docs/CURRICULUM_FOUNDATION.md), [ADR 0007](docs/architecture/0007-versioned-curriculum.md), and [Maya Teaching Studio contract](docs/MAYA_TEACHING_STUDIO_CONTRACT.md) for schemas, service contracts, future editor workflows, and controlled student migration. Course documents are bounded atomic JSON snapshots, validated by Zod and PostgreSQL pg_jsonschema. Keep the checked-in schema, migration validator, sample fixture, and seed aligned; tests enforce this. New document schema versions require additive migrations.
 
-The Phase 2 migration intentionally fails if an existing installation has unversioned enrollments without a reviewed legacy snapshot. This local Phase 1 installation has no enrollment workflow. Prepare a reviewed snapshot/backfill before applying to such an installation; never fabricate historical requirements or reset hosted data. Studio editing, upload ingestion, teaching-policy activation, LLM integration, and Phase 3 planning are future work.
+The Phase 2 migration intentionally fails if an existing installation has unversioned enrollments without a reviewed legacy snapshot. This local Phase 1 installation has no enrollment workflow. Prepare a reviewed snapshot/backfill before applying to such an installation; never fabricate historical requirements or reset hosted data. Studio editing, upload ingestion, teaching-policy activation, LLM integration, and adaptive planning are future work.
+
+## Enroll and view a learning roadmap
+
+1. Sign in as a verified parent and choose an existing student (or create one).
+2. Choose **Enroll in a course**, then Grade 8 Mathematics, published version 1.
+3. Enter an IANA timezone such as `America/New_York`, select weekdays and local lesson time, and choose an earliest date within the next year. The number of selected weekdays must equal lessons/week. Duration 30 minutes and frequency two/week are editable defaults; availability is never assumed.
+4. Confirm enrollment. The transaction creates all relevant student skills, a version-pinned plan, preferences, lesson reservations, and audit records together. An overlap or invalid DST time creates no partial enrollment.
+5. Review the student's persistent roadmap: four projected lessons for the prototype at 30 minutes, skills marked **Not yet assessed**, timezone-aware dates, prerequisites, and estimated completion. Refresh or return through **View course roadmap** on the student profile.
+
+Publishing another curriculum version never rewrites this enrollment or schedule. Identical retries return the same records; changed preferences/version cannot silently replace them. Nonexistent and ambiguous DST local times are rejected, so select another time. Initial schedule editing and adaptive recalculation are not yet enabled. No consent-gated media or AI capability is activated by enrollment.
+
+Read [Student course planning](docs/STUDENT_COURSE_PLANNING.md), [ADR 0008](docs/architecture/0008-initial-course-planning.md), and the [Phase 3 verification report](docs/PHASE_3_VERIFICATION.md). The canonical existing enrollment/planning/scheduling tables are reused; legacy incomplete enrollments require reviewed initialization. Run SQL assertions on a clean local seed **before** browser tests create synthetic records.

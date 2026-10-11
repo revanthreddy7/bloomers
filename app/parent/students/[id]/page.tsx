@@ -10,7 +10,7 @@ export default async function StudentProfile({
 }) {
   const { id } = await params;
   const { student, client } = await getStudent(id);
-  const [policies, history] = await Promise.all([
+  const [policies, history, enrollments] = await Promise.all([
     client
       .from('consent_policies')
       .select('consent_type,version,description,approved')
@@ -22,8 +22,13 @@ export default async function StudentProfile({
       .select('id,consent_type,policy_version,granted,recorded_at,source')
       .eq('student_id', id)
       .order('event_order', { ascending: false }),
+    client
+      .from('student_courses')
+      .select('id,status,initialization_state')
+      .eq('student_id', id)
+      .order('enrolled_at'),
   ]);
-  if (policies.error || history.error)
+  if (policies.error || history.error || enrollments.error)
     throw new Error('Consent settings could not be loaded.');
   return (
     <main>
@@ -44,6 +49,33 @@ export default async function StudentProfile({
           <p className="small preserve-lines">{student.learning_goals}</p>
         </section>
       )}
+      <section className="panel consent-section">
+        <h2>Course enrollments</h2>
+        {!enrollments.data.length && <p>No courses enrolled yet.</p>}
+        <ul>
+          {enrollments.data.map((enrollment) => (
+            <li key={enrollment.id}>
+              {enrollment.initialization_state === 'ready' ? (
+                <Link href={`/parent/students/${id}/courses/${enrollment.id}`}>
+                  View course roadmap
+                </Link>
+              ) : (
+                <span>Existing enrollment needs reviewed initialization</span>
+              )}
+              {' · '}
+              {enrollment.status === 'completed'
+                ? 'Completed enrollment'
+                : 'Active enrollment'}
+            </li>
+          ))}
+        </ul>
+        <Link
+          className="button secondary"
+          href={`/parent/students/${id}/courses/new`}
+        >
+          Enroll in a course
+        </Link>
+      </section>
       <section className="consent-section">
         <h2>Capability permissions</h2>
         <p className="small">

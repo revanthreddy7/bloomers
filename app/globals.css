@@ -344,3 +344,31 @@ textarea {
     padding: 24px;
   }
 }
+.weekday-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+.weekday-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.identity-form .weekday-option input {
+  width: auto;
+  min-height: 24px;
+}
+.identity-form fieldset {
+  border: 1px solid #dce5d3;
+  border-radius: 12px;
+  padding: 18px;
+}
+.roadmap-lessons {
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 18px;
+}
+.roadmap-lessons li {
+  overflow-wrap: anywhere;
+}

@@ -101,20 +101,30 @@ export type Database = {
         Row: {
           id: string;
           preferences: NonNullable<Json>;
+          student_course_id: string | null;
           student_id: string;
         };
         ComputedFields: never;
         Insert: {
           id?: string;
           preferences?: NonNullable<Json>;
+          student_course_id?: string | null;
           student_id: string;
         };
         Update: {
           id?: string;
           preferences?: NonNullable<Json>;
+          student_course_id?: string | null;
           student_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: 'availability_preferences_student_course_id_fkey';
+            columns: ['student_course_id'];
+            isOneToOne: true;
+            referencedRelation: 'student_courses';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'availability_preferences_student_id_fkey';
             columns: ['student_id'];
@@ -218,7 +228,10 @@ export type Database = {
       course_plan_items: {
         Row: {
           course_plan_id: string;
+          estimated_minutes: number | null;
           id: string;
+          lesson_position: number | null;
+          objectives: NonNullable<Json>;
           position: number;
           projected_date: string | null;
           skill_id: string;
@@ -226,14 +239,20 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           course_plan_id: string;
+          estimated_minutes?: number | null;
           id?: string;
+          lesson_position?: number | null;
+          objectives?: NonNullable<Json>;
           position: number;
           projected_date?: string | null;
           skill_id: string;
         };
         Update: {
           course_plan_id?: string;
+          estimated_minutes?: number | null;
           id?: string;
+          lesson_position?: number | null;
+          objectives?: NonNullable<Json>;
           position?: number;
           projected_date?: string | null;
           skill_id?: string;
@@ -253,25 +272,38 @@ export type Database = {
             referencedRelation: 'skills';
             referencedColumns: ['id'];
           },
+          {
+            foreignKeyName: 'plan_item_schedule_fk';
+            columns: ['course_plan_id', 'lesson_position'];
+            isOneToOne: false;
+            referencedRelation: 'lesson_schedules';
+            referencedColumns: ['course_plan_id', 'lesson_position'];
+          },
         ];
       };
       course_plans: {
         Row: {
+          algorithm_version: string | null;
           curriculum_version_id: string;
           id: string;
+          status: string;
           student_course_id: string;
           version: number;
         };
         ComputedFields: never;
         Insert: {
+          algorithm_version?: string | null;
           curriculum_version_id: string;
           id?: string;
+          status?: string;
           student_course_id: string;
           version?: number;
         };
         Update: {
+          algorithm_version?: string | null;
           curriculum_version_id?: string;
           id?: string;
+          status?: string;
           student_course_id?: string;
           version?: number;
         };
@@ -716,25 +748,44 @@ export type Database = {
       };
       lesson_schedules: {
         Row: {
+          course_plan_id: string | null;
+          ends_at: string;
           id: string;
+          lesson_position: number | null;
           starts_at: string;
           status: string;
           student_id: string;
+          timezone: string | null;
         };
         ComputedFields: never;
         Insert: {
+          course_plan_id?: string | null;
+          ends_at: string;
           id?: string;
+          lesson_position?: number | null;
           starts_at: string;
           status?: string;
           student_id: string;
+          timezone?: string | null;
         };
         Update: {
+          course_plan_id?: string | null;
+          ends_at?: string;
           id?: string;
+          lesson_position?: number | null;
           starts_at?: string;
           status?: string;
           student_id?: string;
+          timezone?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: 'lesson_schedules_course_plan_id_fkey';
+            columns: ['course_plan_id'];
+            isOneToOne: false;
+            referencedRelation: 'course_plans';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'lesson_schedules_student_id_fkey';
             columns: ['student_id'];
@@ -1144,24 +1195,36 @@ export type Database = {
       student_courses: {
         Row: {
           course_id: string;
+          creation_request_id: string | null;
           curriculum_version_id: string;
           enrolled_at: string;
+          enrolled_by: string | null;
           id: string;
+          initialization_state: string;
+          status: string;
           student_id: string;
         };
         ComputedFields: never;
         Insert: {
           course_id: string;
+          creation_request_id?: string | null;
           curriculum_version_id: string;
           enrolled_at?: string;
+          enrolled_by?: string | null;
           id?: string;
+          initialization_state?: string;
+          status?: string;
           student_id: string;
         };
         Update: {
           course_id?: string;
+          creation_request_id?: string | null;
           curriculum_version_id?: string;
           enrolled_at?: string;
+          enrolled_by?: string | null;
           id?: string;
+          initialization_state?: string;
+          status?: string;
           student_id?: string;
         };
         Relationships: [
@@ -1177,6 +1240,13 @@ export type Database = {
             columns: ['course_id'];
             isOneToOne: false;
             referencedRelation: 'courses';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'student_courses_enrolled_by_fkey';
+            columns: ['enrolled_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
             referencedColumns: ['id'];
           },
           {
@@ -1319,6 +1389,7 @@ export type Database = {
       };
       student_skills: {
         Row: {
+          assessment_state: string;
           confidence: number;
           evidence_count: number;
           last_evidence_id: string | null;
@@ -1331,6 +1402,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          assessment_state?: string;
           confidence?: number;
           evidence_count?: number;
           last_evidence_id?: string | null;
@@ -1342,6 +1414,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          assessment_state?: string;
           confidence?: number;
           evidence_count?: number;
           last_evidence_id?: string | null;
@@ -1520,6 +1593,14 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      build_initial_course_plan: {
+        Args: { d: Json; p_duration: number };
+        Returns: Json;
+      };
+      build_initial_lesson_schedule: {
+        Args: { p: Json; p_count: number; p_now: string };
+        Returns: Json;
+      };
       can_read_student: { Args: { p_student: string }; Returns: boolean };
       create_parent_student: {
         Args: {
@@ -1531,6 +1612,19 @@ export type Database = {
         Returns: string;
       };
       curriculum_document_schema: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      enroll_parent_student: {
+        Args: {
+          p_preferences: Json;
+          p_request_id: string;
+          p_student_id: string;
+          p_version_id: string;
+        };
+        Returns: string;
+      };
+      initial_preferences_schema: {
         Args: Record<PropertyKey, never>;
         Returns: Json;
       };
@@ -1560,6 +1654,10 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string;
       };
+      resolve_initial_local_time: {
+        Args: { p_local: string; p_timezone: string };
+        Returns: string;
+      };
       save_curriculum_draft: {
         Args: {
           p_course_id: string;
@@ -1582,6 +1680,7 @@ export type Database = {
         Args: { d: Json; publishing?: boolean };
         Returns: undefined;
       };
+      validate_initial_preferences: { Args: { p: Json }; Returns: Json };
     };
     Enums: {
       app_role: 'PARENT' | 'STUDENT' | 'ADMIN';
