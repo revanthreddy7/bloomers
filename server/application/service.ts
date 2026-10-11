@@ -49,7 +49,7 @@ export const getLearningView = cache(
         .limit(51),
       client
         .from('lessons')
-        .select('status,started_at,ended_at')
+        .select('status,started_at,ended_at,classroom_mode')
         .eq('student_id', studentId)
         .order('started_at', { ascending: false, nullsFirst: false })
         .limit(51),

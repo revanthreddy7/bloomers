@@ -212,7 +212,16 @@ export function LearningContent({
               {scheduled.length ? (
                 <ul className="simple-list">
                   {scheduled.slice(0, 3).map((row) => (
-                    <li key={row.id}>{format(row.starts_at)} · Planned</li>
+                    <li key={row.id}>
+                      {format(row.starts_at)} · Planned
+                      {mode === 'preview' && (
+                        <p>
+                          <Link href={`${base}/classroom/${row.id}`}>
+                            Open supervised classroom preview
+                          </Link>
+                        </p>
+                      )}
+                    </li>
                   ))}
                 </ul>
               ) : (
@@ -451,7 +460,7 @@ export function LearningContent({
           )}
           <p className="small">
             The course sets academic requirements; the calendar holds projected
-            dates. Schedule changes and Maya classrooms are not enabled.
+            dates. Schedule changes and Maya AI teaching are not enabled.
           </p>
         </section>
       )}
@@ -520,6 +529,16 @@ function ScheduleContent({
                   {row.status === 'scheduled' ? 'Planned' : row.status} ·{' '}
                   {timezone}
                 </p>
+                {base.startsWith('/preview/') &&
+                  course &&
+                  row.status === 'scheduled' &&
+                  Date.parse(row.ends_at) > Date.parse(data.now) && (
+                    <Link
+                      href={`${base.split('/').slice(0, 3).join('/')}/classroom/${row.id}`}
+                    >
+                      Open supervised classroom preview
+                    </Link>
+                  )}
                 {course?.items
                   .filter((i) => i.lesson_position === row.lesson_position)
                   .flatMap((i) =>

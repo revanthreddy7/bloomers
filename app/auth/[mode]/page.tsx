@@ -4,6 +4,7 @@ import { AuthForm, ResetForm } from '@/components/identity/forms';
 import { createSessionClient } from '@/server/supabase-session';
 import { signOut } from '@/server/identity/actions';
 import { safeNext } from '@/features/identity/validation';
+import { getPublicEnv } from '@/lib/env';
 export const dynamic = 'force-dynamic';
 const screens: Record<string, { title: string; description: string }> = {
   'sign-up': {
@@ -62,6 +63,9 @@ export default async function AuthPage({
   }
   const passwordSession =
     mode !== 'reset-password' || !!user?.email_confirmed_at;
+  const localEmailInbox = ['localhost', '127.0.0.1'].includes(
+    new URL(getPublicEnv().NEXT_PUBLIC_SUPABASE_URL).hostname,
+  );
   return (
     <main className="identity-shell auth-shell">
       <Link href="/" className="brand">
@@ -104,7 +108,27 @@ export default async function AuthPage({
           )}
           {mode === 'verify-email' && (
             <>
+              {localEmailInbox && (
+                <div className="quiet-note">
+                  <p>
+                    This local app sends verification emails to its local inbox.
+                    Open the latest email addressed to you and choose Verify
+                    email.
+                  </p>
+                  <a
+                    href="http://localhost:54324"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open local email inbox
+                  </a>
+                </div>
+              )}
               <h2>Need another email?</h2>
+              <p className="small">
+                If your link expired, request a fresh email below. Allow one
+                minute between requests, then use the newest link.
+              </p>
               <AuthForm mode="resend" />
               <Link href="/auth/sign-in">Return to sign in</Link>
             </>

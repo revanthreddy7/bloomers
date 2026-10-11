@@ -161,8 +161,10 @@ export function attendanceModel(
     status: string;
     started_at: string | null;
     ended_at: string | null;
+    classroom_mode?: string;
   }[],
 ) {
+  rows = rows.filter((r) => r.classroom_mode !== 'supervised_preview');
   return {
     started: rows.some((r) => !!r.started_at),
     completed: rows.filter(

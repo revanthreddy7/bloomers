@@ -547,3 +547,75 @@ textarea {
 .account-footer {
   color: var(--muted);
 }
+
+.classroom-shell {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.classroom-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.classroom-heading h1 {
+  font-size: clamp(1.8rem, 4vw, 3rem);
+}
+.classroom-context {
+  margin-bottom: 1rem;
+}
+.classroom-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(230px, 1fr);
+  gap: 1rem;
+}
+.whiteboard-panel {
+  min-width: 0;
+  padding: 1rem;
+}
+.board-toolbar,
+.classroom-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.board-toolbar {
+  margin-bottom: 1rem;
+}
+.board-toolbar button[aria-pressed='true'] {
+  outline: 2px solid #246bce;
+  outline-offset: 2px;
+}
+.shared-whiteboard {
+  width: 100%;
+  aspect-ratio: 1000 / 650;
+  display: block;
+  background: #fff;
+  border: 1px solid #b6c6be;
+  border-radius: 0.5rem;
+  touch-action: none;
+}
+.shared-whiteboard path {
+  pointer-events: stroke;
+}
+.classroom-controls {
+  margin-top: 1rem;
+  align-items: center;
+}
+.classroom-controls p {
+  flex-basis: 100%;
+}
+@media (max-width: 760px) {
+  .classroom-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .classroom-heading {
+    flex-direction: column;
+  }
+  .whiteboard-panel {
+    padding: 0.65rem;
+  }
+  .board-toolbar button {
+    padding: 0.5rem 0.7rem;
+  }
+}

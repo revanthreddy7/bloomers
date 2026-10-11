@@ -7,6 +7,31 @@ export type Json =
   | Json[];
 
 export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
   public: {
     Tables: {
       ai_runs: {
@@ -634,28 +659,53 @@ export type Database = {
       };
       lesson_events: {
         Row: {
+          actor_id: string | null;
           created_at: string;
           event_type: string;
           id: string;
+          interruption_epoch: number | null;
           lesson_id: string;
           payload: NonNullable<Json>;
+          protocol_version: number | null;
+          request_fingerprint: Json | null;
+          sequence: number | null;
+          source: string | null;
         };
         ComputedFields: never;
         Insert: {
+          actor_id?: string | null;
           created_at?: string;
           event_type: string;
           id?: string;
+          interruption_epoch?: number | null;
           lesson_id: string;
           payload?: NonNullable<Json>;
+          protocol_version?: number | null;
+          request_fingerprint?: Json | null;
+          sequence?: number | null;
+          source?: string | null;
         };
         Update: {
+          actor_id?: string | null;
           created_at?: string;
           event_type?: string;
           id?: string;
+          interruption_epoch?: number | null;
           lesson_id?: string;
           payload?: NonNullable<Json>;
+          protocol_version?: number | null;
+          request_fingerprint?: Json | null;
+          sequence?: number | null;
+          source?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: 'lesson_events_actor_id_fkey';
+            columns: ['actor_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'lesson_events_lesson_id_fkey';
             columns: ['lesson_id'];
@@ -797,8 +847,13 @@ export type Database = {
       };
       lessons: {
         Row: {
+          classroom_mode: string;
+          curriculum_version_id: string | null;
           ended_at: string | null;
+          event_sequence: number;
           id: string;
+          interruption_epoch: number;
+          last_seen_at: string | null;
           schedule_id: string | null;
           started_at: string | null;
           status: string;
@@ -806,16 +861,26 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          classroom_mode?: string;
+          curriculum_version_id?: string | null;
           ended_at?: string | null;
+          event_sequence?: number;
           id?: string;
+          interruption_epoch?: number;
+          last_seen_at?: string | null;
           schedule_id?: string | null;
           started_at?: string | null;
           status?: string;
           student_id: string;
         };
         Update: {
+          classroom_mode?: string;
+          curriculum_version_id?: string | null;
           ended_at?: string | null;
+          event_sequence?: number;
           id?: string;
+          interruption_epoch?: number;
+          last_seen_at?: string | null;
           schedule_id?: string | null;
           started_at?: string | null;
           status?: string;
@@ -828,6 +893,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'lesson_schedules';
             referencedColumns: ['id', 'student_id'];
+          },
+          {
+            foreignKeyName: 'lessons_curriculum_version_id_fkey';
+            columns: ['curriculum_version_id'];
+            isOneToOne: false;
+            referencedRelation: 'curriculum_versions';
+            referencedColumns: ['id'];
           },
           {
             foreignKeyName: 'lessons_schedule_id_fkey';
@@ -1593,9 +1665,24 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      abandon_classroom_internal: {
+        Args: { p_lesson: string };
+        Returns: undefined;
+      };
       active_preview_student: {
         Args: Record<PropertyKey, never>;
         Returns: string;
+      };
+      append_classroom_internal: {
+        Args: {
+          p_fingerprint: Json;
+          p_id: string;
+          p_kind: string;
+          p_lesson: string;
+          p_payload: Json;
+          p_source: string;
+        };
+        Returns: undefined;
       };
       begin_student_preview: {
         Args: { p_student_id: string };
@@ -1610,6 +1697,27 @@ export type Database = {
         Returns: Json;
       };
       can_read_student: { Args: { p_student: string }; Returns: boolean };
+      classroom_append: {
+        Args: {
+          p_command: Json;
+          p_epoch: number;
+          p_request_id: string;
+          p_schedule_id: string;
+        };
+        Returns: string;
+      };
+      classroom_command_schema: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      classroom_lifecycle: {
+        Args: { p_action: string; p_request_id: string; p_schedule_id: string };
+        Returns: string;
+      };
+      classroom_replay: {
+        Args: { p_after?: number; p_schedule_id: string };
+        Returns: Json;
+      };
       create_parent_student: {
         Args: {
           p_display_name: string;
@@ -1664,6 +1772,10 @@ export type Database = {
           p_request_id: string;
           p_student_id: string;
         };
+        Returns: string;
+      };
+      require_classroom_preview: {
+        Args: { p_student: string };
         Returns: string;
       };
       require_verified_parent: {
@@ -1825,6 +1937,9 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ['PARENT', 'STUDENT', 'ADMIN'],
