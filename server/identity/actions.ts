@@ -83,6 +83,8 @@ export async function authenticate(
       error:
         'Unable to sign in. Check your details, verify your email, or try again later.',
     };
+  const adminCheck = await client.rpc('is_academic_admin');
+  if (adminCheck?.data === true) redirect('/curriculum');
   redirect(safeNext(form.get('next')?.toString() ?? null));
 }
 export async function signOut(): Promise<void> {
@@ -90,6 +92,7 @@ export async function signOut(): Promise<void> {
   const { error } = await client.auth.signOut({ scope: 'global' });
   if (error) throw new Error('Sign-out did not complete. Please try again.');
   revalidatePath('/parent', 'layout');
+  revalidatePath('/curriculum', 'layout');
   redirect('/auth/sign-in');
 }
 export async function resetPassword(

@@ -257,22 +257,32 @@ export type Database = {
       };
       course_plans: {
         Row: {
+          curriculum_version_id: string;
           id: string;
           student_course_id: string;
           version: number;
         };
         ComputedFields: never;
         Insert: {
+          curriculum_version_id: string;
           id?: string;
           student_course_id: string;
           version?: number;
         };
         Update: {
+          curriculum_version_id?: string;
           id?: string;
           student_course_id?: string;
           version?: number;
         };
         Relationships: [
+          {
+            foreignKeyName: 'course_plans_curriculum_version_id_fkey';
+            columns: ['curriculum_version_id'];
+            isOneToOne: false;
+            referencedRelation: 'curriculum_versions';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'course_plans_student_course_id_fkey';
             columns: ['student_course_id'];
@@ -355,6 +365,68 @@ export type Database = {
           title?: string;
         };
         Relationships: [];
+      };
+      curriculum_versions: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          created_by: string | null;
+          document: NonNullable<Json>;
+          id: string;
+          published_at: string | null;
+          published_by: string | null;
+          revision: number;
+          status: string;
+          version: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          document: NonNullable<Json>;
+          id?: string;
+          published_at?: string | null;
+          published_by?: string | null;
+          revision?: number;
+          status?: string;
+          version: number;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          document?: NonNullable<Json>;
+          id?: string;
+          published_at?: string | null;
+          published_by?: string | null;
+          revision?: number;
+          status?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'curriculum_versions_course_id_fkey';
+            columns: ['course_id'];
+            isOneToOne: false;
+            referencedRelation: 'courses';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'curriculum_versions_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'curriculum_versions_published_by_fkey';
+            columns: ['published_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       homework_assignments: {
         Row: {
@@ -1072,6 +1144,7 @@ export type Database = {
       student_courses: {
         Row: {
           course_id: string;
+          curriculum_version_id: string;
           enrolled_at: string;
           id: string;
           student_id: string;
@@ -1079,17 +1152,26 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           course_id: string;
+          curriculum_version_id: string;
           enrolled_at?: string;
           id?: string;
           student_id: string;
         };
         Update: {
           course_id?: string;
+          curriculum_version_id?: string;
           enrolled_at?: string;
           id?: string;
           student_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: 'student_course_version_fk';
+            columns: ['curriculum_version_id', 'course_id'];
+            isOneToOne: false;
+            referencedRelation: 'curriculum_versions';
+            referencedColumns: ['id', 'course_id'];
+          },
           {
             foreignKeyName: 'student_courses_course_id_fkey';
             columns: ['course_id'];
@@ -1448,9 +1530,22 @@ export type Database = {
         };
         Returns: string;
       };
+      curriculum_document_schema: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      is_academic_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_parent_of: { Args: { p_student: string }; Returns: boolean };
       limit_identity_mutations: { Args: { actor: string }; Returns: undefined };
       provision_parent: { Args: Record<PropertyKey, never>; Returns: string };
+      publish_curriculum_version: {
+        Args: { p_expected_revision: number; p_version_id: string };
+        Returns: string;
+      };
+      published_academic_identity: {
+        Args: { p_id: string; p_kind: string };
+        Returns: boolean;
+      };
       record_parent_consent: {
         Args: {
           p_consent_type: string;
@@ -1465,6 +1560,15 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string;
       };
+      save_curriculum_draft: {
+        Args: {
+          p_course_id: string;
+          p_document?: Json;
+          p_expected_revision?: number;
+          p_version_id?: string;
+        };
+        Returns: string;
+      };
       update_parent_student: {
         Args: {
           p_display_name: string;
@@ -1472,6 +1576,10 @@ export type Database = {
           p_learning_goals?: string;
           p_student_id: string;
         };
+        Returns: undefined;
+      };
+      validate_curriculum_document: {
+        Args: { d: Json; publishing?: boolean };
         Returns: undefined;
       };
     };

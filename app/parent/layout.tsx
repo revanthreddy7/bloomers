@@ -16,6 +16,7 @@ export default async function ParentLayout({
         </Link>
         <nav aria-label="Parent navigation">
           <Link href="/parent">Students</Link>
+          <Link href="/curriculum">Curriculum</Link>
           <Link href="/parent/settings">Account</Link>
           <form action={signOut}>
             <button className="text-button">Sign out</button>

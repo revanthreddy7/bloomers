@@ -18,7 +18,8 @@
     "db:test": "node scripts/supabase.mjs test db",
     "db:lint": "node scripts/supabase.mjs db lint --local --schema public --fail-on warning",
     "env:local": "node scripts/setup-local-env.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "db:test:seed": "node scripts/test-seed-repeatability.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

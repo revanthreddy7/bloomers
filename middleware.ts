@@ -26,4 +26,6 @@ export async function middleware(request: NextRequest) {
   response.headers.set('Referrer-Policy', 'no-referrer');
   return response;
 }
-export const config = { matcher: ['/parent/:path*', '/auth/:path*'] };
+export const config = {
+  matcher: ['/parent/:path*', '/auth/:path*', '/curriculum/:path*'],
+};

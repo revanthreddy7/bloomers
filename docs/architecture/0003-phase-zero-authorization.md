@@ -15,3 +15,5 @@
 **Privacy:** Raw lesson events/messages, question answers, memory, uploads, AI/tool runs, safety events, and audit logs have no client read policy. Parent reports are parent-only. No storage buckets or media collection exist. Logs accept only approved operational fields. Local seed data contains no people or credentials; security-test identities are synthetic and rolled back.
 
 **Verification:** pgTAP exercises actual roles and JWT subjects, both families, unrelated/admin/anonymous access, revoked relationships, metadata spoofing, privileged write attempts, service access, and database constraints. CI resets the local database and runs lint plus pgTAP.
+
+**Phase 2 follow-up:** [ADR 0007](0007-versioned-curriculum.md) adds confirmed academic ADMIN operations for draft/publication management only. Published version documents enforce prerequisite DAGs; enrollment and historical plan pins preserve curriculum requirements. The original child-data RLS boundaries remain in force.

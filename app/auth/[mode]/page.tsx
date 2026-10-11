@@ -56,8 +56,10 @@ export default async function AuthPage({
   const {
     data: { user },
   } = await client.auth.getUser();
-  if (user?.email_confirmed_at && ['sign-in', 'sign-up'].includes(mode))
-    redirect('/parent');
+  if (user?.email_confirmed_at && ['sign-in', 'sign-up'].includes(mode)) {
+    const { data: admin } = await client.rpc('is_academic_admin');
+    redirect(admin === true ? '/curriculum' : '/parent');
+  }
   const passwordSession =
     mode !== 'reset-password' || !!user?.email_confirmed_at;
   return (

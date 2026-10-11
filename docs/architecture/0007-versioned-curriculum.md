@@ -1,0 +1,21 @@
+# ADR 0007 — Stable academic identities and immutable course snapshots
+
+**Decision:** Keep the existing Course → Unit → Topic → Skill identity hierarchy. A topic is the chapter; there is no duplicate chapter table. Store version-specific metadata, associations, positions, content, skill requirements, and prerequisite edges together in a validated `curriculum_versions.document`.
+
+**Options:** Mutate the existing catalog in place; duplicate every academic table per version; retain stable identities and use atomic course documents.
+
+**Recommendation:** Atomic documents for this small prototype, with PostgreSQL JSON Schema validation, relational version ownership, and explicit lifecycle RPCs.
+
+**Why:** Existing skill IDs already anchor questions, attempts, evidence, mastery, misconceptions, and plan items. Changing those identities would damage learning history. A complete snapshot is the smallest practical way to isolate published requirements and version-specific DAGs without introducing a general CMS. Unit/topic/skill membership and ordering come from the selected snapshot. Identity-table parents establish immutable course ownership; snapshots may reorganize topics and skills within that course.
+
+**Tradeoffs:** Editing replaces one whole course draft. Optimistic revisions protect concurrent editors; coarse course locks serialize numbering, identity registration, and publication. Reading parses the whole document (bounded to 2 MB and 1,000 skills). SQL and TypeScript both validate the DAG, associations, positions, and publication readiness. JSON node references are enforced by the registration trigger rather than individual JSON foreign keys. Application tests freeze the JSON Schema embedded in the migration and check seed/schema agreement. Future schema changes require a new schema version and additive migration, rather than silently changing the validator for existing publications.
+
+**Reversibility:** Documents can later be projected into versioned relational content tables without replacing stable IDs. There is no graph database, document ingestion, LLM integration, or authoring UI.
+
+**Authorization:** Server-only services validate Auth identity, confirmed email, and the canonical `public.users.role`. RPCs repeat the confirmed ADMIN check using `auth.uid()`, because authenticated clients can invoke them directly. Neither editable Auth metadata nor service keys are used for normal mutations. Direct table writes remain denied to clients. RLS permits parents to read publications and verified administrators to inspect drafts. The explorer filters publications even for administrators. Legacy catalog policies hide draft-only identities. Private questions remain unreadable to every browser role.
+
+**Publication:** Save validates structure; publish additionally requires academic objectives and representative teaching content. Publication is explicit, revision-checked, immutable even for the database owner, and audited by a trigger. RPC publication retries with the same revision return the publication without a second audit event. Rollback means cloning reviewed prior content into a new draft and publishing a new version; old publications are never overwritten. New version numbering is serialized per stable course.
+
+**Student continuity:** `student_courses.curriculum_version_id` must reference a published snapshot of that same course. Historical `course_plans` copy that pin. Publishing never updates either. Legacy callers that omit the pin resolve the earliest publication; future enrollment services must explicitly select the reviewed desired publication. Reassignment of enrollment pins is blocked until a controlled migration workflow exists. Existing unversioned enrollments cause migration failure and require a reviewed backfill; this phase never fabricates historical requirements. Phase 1 has no enrollments to backfill.
+
+**Verification:** Unit tests validate documents, ordering, and graph operations. Transactional SQL tests exercise roles, lifecycle, immutability, scope, audit and pins; a Docker/PostgreSQL replay check verifies seed repeatability. Real concurrent HTTP RPC calls verify that competing individually valid graph edits cannot combine into a cycle or lose updates. Prior phase tests remain unchanged.
