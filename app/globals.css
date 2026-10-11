@@ -619,3 +619,13 @@ textarea {
     padding: 0.5rem 0.7rem;
   }
 }
+.maya-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.conversation-panel section {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  margin-top: 1rem;
+}

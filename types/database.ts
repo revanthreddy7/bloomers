@@ -854,6 +854,12 @@ export type Database = {
           id: string;
           interruption_epoch: number;
           last_seen_at: string | null;
+          maya_applied: boolean;
+          maya_pending: string | null;
+          maya_pending_at: string | null;
+          maya_started_at: string | null;
+          maya_step: number;
+          maya_stopped_at: string | null;
           schedule_id: string | null;
           started_at: string | null;
           status: string;
@@ -868,6 +874,12 @@ export type Database = {
           id?: string;
           interruption_epoch?: number;
           last_seen_at?: string | null;
+          maya_applied?: boolean;
+          maya_pending?: string | null;
+          maya_pending_at?: string | null;
+          maya_started_at?: string | null;
+          maya_step?: number;
+          maya_stopped_at?: string | null;
           schedule_id?: string | null;
           started_at?: string | null;
           status?: string;
@@ -881,6 +893,12 @@ export type Database = {
           id?: string;
           interruption_epoch?: number;
           last_seen_at?: string | null;
+          maya_applied?: boolean;
+          maya_pending?: string | null;
+          maya_pending_at?: string | null;
+          maya_started_at?: string | null;
+          maya_step?: number;
+          maya_stopped_at?: string | null;
           schedule_id?: string | null;
           started_at?: string | null;
           status?: string;
@@ -1755,6 +1773,34 @@ export type Database = {
       is_academic_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_parent_of: { Args: { p_student: string }; Returns: boolean };
       limit_identity_mutations: { Args: { actor: string }; Returns: undefined };
+      maya_mock_event_schema_internal: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      maya_mock_operation: {
+        Args: {
+          p_action: string;
+          p_epoch: number;
+          p_request_id: string;
+          p_schedule_id: string;
+          p_speech_id?: string;
+        };
+        Returns: Json;
+      };
+      maya_mock_plan_internal: { Args: { p_lesson_id: string }; Returns: Json };
+      maya_mock_templates_internal: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      maya_mock_tool_audit: {
+        Args: {
+          p_name: string;
+          p_outcome: string;
+          p_request_id: string;
+          p_schedule_id: string;
+        };
+        Returns: undefined;
+      };
       provision_parent: { Args: Record<PropertyKey, never>; Returns: string };
       publish_curriculum_version: {
         Args: { p_expected_revision: number; p_version_id: string };

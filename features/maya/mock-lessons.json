@@ -1,0 +1,76 @@
+{
+  "integers": [
+    {
+      "narration": "Today we will add signed integers. Start at negative three on a number line, then add seven. Adding a positive number moves us to the right.",
+      "durationMs": 4000,
+      "offsetMs": 1200,
+      "board": {
+        "kind": "write_math",
+        "at": { "x": 0.12, "y": 0.18 },
+        "text": "−3 + 7"
+      },
+      "question": null,
+      "fallback": "Imagine you owe three counters and receive seven. Three cancel the debt, leaving four counters."
+    },
+    {
+      "narration": "Move seven places right from negative three. Three moves reach zero, and four more reach positive four. The sum is four.",
+      "durationMs": 4000,
+      "offsetMs": 1200,
+      "board": {
+        "kind": "write_math",
+        "at": { "x": 0.12, "y": 0.4 },
+        "text": "−3 + 7 = 4"
+      },
+      "question": null,
+      "fallback": "Separate seven into three plus four. Negative three plus three is zero; zero plus four is four."
+    },
+    {
+      "narration": "Notice that we crossed zero and finished on the positive side. Take a moment to explain why the answer is positive.",
+      "durationMs": 3500,
+      "offsetMs": 1000,
+      "board": {
+        "kind": "highlight",
+        "box": { "x": 0.1, "y": 0.3, "width": 0.55, "height": 0.15 }
+      },
+      "question": "Why is the result positive? Explain using the number line.",
+      "fallback": "Which is larger: the three places left of zero, or the seven places we move right?"
+    }
+  ],
+  "inverse": [
+    {
+      "narration": "Our objective is to identify an inverse operation while preserving equality. Consider x plus five equals nine. We want to undo adding five.",
+      "durationMs": 4000,
+      "offsetMs": 1200,
+      "board": {
+        "kind": "write_math",
+        "at": { "x": 0.12, "y": 0.18 },
+        "text": "x + 5 = 9"
+      },
+      "question": null,
+      "fallback": "Think of two balanced sides. Whatever we remove from one side, we must remove from the other."
+    },
+    {
+      "narration": "Let's subtract five from both sides. Subtraction undoes addition. On the right, nine minus five is four, so x equals four.",
+      "durationMs": 4000,
+      "offsetMs": 1200,
+      "board": {
+        "kind": "write_math",
+        "at": { "x": 0.12, "y": 0.4 },
+        "text": "x + 5 − 5 = 9 − 5;  x = 4"
+      },
+      "question": null,
+      "fallback": "Five added to an unknown makes nine. The unknown is the difference between nine and five."
+    },
+    {
+      "narration": "Check: four plus five equals nine. What should we do to undo multiplying by two? Take time to explain your reasoning.",
+      "durationMs": 3500,
+      "offsetMs": 1000,
+      "board": {
+        "kind": "highlight",
+        "box": { "x": 0.1, "y": 0.3, "width": 0.78, "height": 0.15 }
+      },
+      "question": "What operation undoes multiplication by two, and why?",
+      "fallback": "Ask which operation shares a quantity into two equal groups."
+    }
+  ]
+}

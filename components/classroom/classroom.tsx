@@ -13,6 +13,9 @@ import {
 } from '@/features/classroom/protocol';
 import type { ClassroomContext } from '@/server/classroom/service';
 import { formatInstant } from '@/features/application/models';
+import { MockTeaching, MayaBoard } from '@/components/maya/teaching';
+import { teachingView } from '@/features/maya/events';
+import type { MockOperation } from '@/features/maya/contracts';
 function path(points: Point[]) {
   return points
     .map((p, i) => `${i ? 'L' : 'M'}${p.x * 1000},${p.y * 650}`)
@@ -43,7 +46,7 @@ export function Classroom({
     mounted = useRef(true),
     disconnected = useRef(false);
   const [retry, setRetry] = useState<{
-    kind: 'lifecycle' | 'append';
+    kind: 'lifecycle' | 'append' | 'maya';
     input: unknown;
   } | null>(null);
   const room = snapshot.lesson,
@@ -51,6 +54,7 @@ export function Classroom({
   const roomId = room?.id,
     roomStatus = room?.status;
   const board = replayBoard(events);
+  const maya = teachingView(events, room?.epoch ?? 0);
   const refresh = useCallback(async () => {
     if (polling.current) return;
     polling.current = true;
@@ -80,7 +84,7 @@ export function Classroom({
     }
   }, [endpoint]);
   const send = useCallback(
-    async (kind: 'lifecycle' | 'append', input: unknown) => {
+    async (kind: 'lifecycle' | 'append' | 'maya', input: unknown) => {
       setBusy(true);
       setError('');
       let responseReceived = false;
@@ -111,6 +115,10 @@ export function Classroom({
     [endpoint, refresh],
   );
   const epoch = room?.epoch;
+  const sendMaya = useCallback(
+    (value: MockOperation) => send('maya', value),
+    [send],
+  );
   useEffect(() => {
     if (!online) {
       disconnected.current = true;
@@ -322,7 +330,7 @@ export function Classroom({
               Redo
             </button>
             <button
-              disabled={!enabled || !board.visible.length}
+              disabled={!enabled || (!board.visible.length && !maya.scene.size)}
               onClick={() => {
                 if (
                   window.confirm(
@@ -418,6 +426,7 @@ export function Classroom({
                 strokeLinejoin="round"
               />
             ))}
+            <MayaBoard scene={maya.scene} />
             {draft.length > 1 && (
               <path
                 d={path(draft)}
@@ -436,10 +445,22 @@ export function Classroom({
           <h2>Maya</h2>
           <span className="status-badge">Tutor offline</span>
           <p>
-            Voice and conversation will become available in a later phase. Your
-            lesson objectives and shared whiteboard are ready for a supervised
-            rehearsal.
+            Live voice is unavailable. The labeled simulation below demonstrates
+            narrated teaching and whiteboard orchestration without media.
           </p>
+          <MockTeaching
+            events={events}
+            room={room}
+            enabled={enabled}
+            canStop={
+              !!room &&
+              ['active', 'paused'].includes(room.status) &&
+              online &&
+              !busy &&
+              !retry
+            }
+            onOperation={sendMaya}
+          />
           <h3>Lesson timeline</h3>
           <ol className="simple-list">
             {events

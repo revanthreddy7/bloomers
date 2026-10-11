@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { readClassroom, mutateClassroom } from '@/server/classroom/service';
+import { operateMaya } from '@/server/maya/orchestrator';
 const headers = {
   'Cache-Control': 'private, no-store',
   'Referrer-Policy': 'no-referrer',
@@ -62,7 +63,10 @@ export async function POST(request: NextRequest, { params }: Context) {
     );
   }
   const envelope = z
-    .strictObject({ kind: z.enum(['lifecycle', 'append']), input: z.unknown() })
+    .strictObject({
+      kind: z.enum(['lifecycle', 'append', 'maya']),
+      input: z.unknown(),
+    })
     .safeParse(body);
   if (!envelope.success)
     return NextResponse.json(
@@ -70,12 +74,15 @@ export async function POST(request: NextRequest, { params }: Context) {
       { status: 400, headers },
     );
   const { id, scheduleId } = await params;
-  const result = await mutateClassroom(
-    id,
-    scheduleId,
-    envelope.data.input,
-    envelope.data.kind,
-  );
+  const result =
+    envelope.data.kind === 'maya'
+      ? await operateMaya(id, scheduleId, envelope.data.input)
+      : await mutateClassroom(
+          id,
+          scheduleId,
+          envelope.data.input,
+          envelope.data.kind,
+        );
   return NextResponse.json(result, {
     status: 'error' in result ? 400 : 200,
     headers,

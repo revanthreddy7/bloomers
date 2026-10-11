@@ -75,6 +75,11 @@ export async function classroomContext(studentId: string, scheduleId: string) {
   ];
   return {
     client,
+    academic: {
+      document,
+      publicationId: publication.data.id,
+      items: items.data,
+    },
     context: {
       studentName: student.display_name,
       studentId,

@@ -44,7 +44,7 @@ export const eventSchema = z.strictObject({
   sequence: z.number().int().positive(),
   epoch: z.number().int().nonnegative(),
   protocolVersion: z.literal(1),
-  source: z.enum(['student_preview', 'system_preview']),
+  source: z.enum(['student_preview', 'system_preview', 'maya_mock']),
   kind: z.string().max(64),
   payload: z.record(z.string(), z.unknown()),
   createdAt: z.iso.datetime({ offset: true }),

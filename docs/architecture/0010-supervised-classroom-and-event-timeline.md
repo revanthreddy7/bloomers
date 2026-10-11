@@ -15,3 +15,5 @@
 **Reversibility:** A push transport can replace polling while preserving ordered canonical events. Real lessons, future instructional evidence and Maya proposals require separate approved producers/capability gates; preview events cannot become evidence automatically.
 
 **Privacy:** No media capture, uploads, AI calls, private answers, parent account props or routine service-role bypass. Only the authorized selected student can be read. Raw event REST access remains denied. See [classroom contracts](../CLASSROOM_INFRASTRUCTURE.md) and [ADR 0009](0009-application-shell-and-student-preview.md).
+
+**Phase 6 follow-up:** [Maya integration](../MAYA_INTEGRATION.md) now supplies a durable deterministic teaching simulation, validated context/plans/tools, rendered Maya commands and interruption/recovery on the canonical lesson timeline. Live OpenAI/WebRTC adapters remain inactive; approved developer authorization and spending controls are prerequisites. The preceding description records the earlier phase baseline.
