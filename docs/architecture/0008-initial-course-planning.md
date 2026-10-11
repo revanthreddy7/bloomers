@@ -33,3 +33,5 @@ flowchart LR
   Records --> Audit[Enrollment and schedule audit]
   Records --> Roadmap[Authorized persisted roadmap]
 ```
+
+**Phase 4 follow-up:** [ADR 0009](0009-application-shell-and-student-preview.md) presents these same persisted records through parent learning views and a supervised preview. Preview narrows parent-session RLS to one student and denies parent mutations. No initial plan, reservation or curriculum pin is duplicated or rewritten.

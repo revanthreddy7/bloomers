@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import { requireParent } from '@/server/identity/parent';
+import { LearningContent } from '@/components/application/learning';
+import {
+  getLearningView,
+  listApplicationStudents,
+} from '@/server/application/service';
 export default async function ParentHome() {
-  const { client } = await requireParent();
-  const { data: students, error } = await client
-    .from('student_profiles')
-    .select('id,display_name,grade')
-    .order('created_at');
-  if (error) throw new Error('Student profiles could not be loaded.');
+  await requireParent();
+  const { students } = await listApplicationStudents();
+  const learning = students[0] ? await getLearningView(students[0].id) : null;
   return (
     <main>
       <div className="page-heading">
@@ -48,6 +50,11 @@ export default async function ParentHome() {
             </Link>
           ))}
         </div>
+      )}
+      {learning && (
+        <section className="consent-section">
+          <LearningContent data={learning} view="overview" familyOverview />
+        </section>
       )}
     </main>
   );

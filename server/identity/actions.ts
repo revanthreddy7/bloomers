@@ -41,6 +41,12 @@ export async function authenticate(
   if (!parsed.success)
     return { error: parsed.error.issues[0]?.message ?? 'Check your details.' };
   const client = await createSessionClient();
+  const preview = await client.rpc('active_preview_student');
+  if (typeof preview?.data === 'string')
+    return { error: 'Return to parent mode before managing authentication.' };
+  // Anonymous Auth entry is permitted; other scope lookup failures fail closed.
+  if (preview?.error && preview.error.code !== '42501')
+    return { error: 'Authentication is unavailable. Please try again.' };
   const values = parsed.data;
   if (mode === 'forgot-password' || mode === 'resend') {
     const target = `${await appOrigin()}/auth/confirm`;
@@ -111,6 +117,9 @@ export async function resetPassword(
   } = await client.auth.getUser();
   if (sessionError || !user || !user.email_confirmed_at)
     return { error: 'This session has expired. Request a new recovery email.' };
+  const preview = await client.rpc('active_preview_student');
+  if (preview?.error || preview?.data)
+    return { error: 'Return to parent mode before changing account settings.' };
   const { error } = await client.auth.updateUser(parsed.data);
   if (error)
     return {

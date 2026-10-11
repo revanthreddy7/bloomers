@@ -1593,6 +1593,14 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      active_preview_student: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
+      begin_student_preview: {
+        Args: { p_student_id: string };
+        Returns: string;
+      };
       build_initial_course_plan: {
         Args: { d: Json; p_duration: number };
         Returns: Json;
@@ -1611,9 +1619,17 @@ export type Database = {
         };
         Returns: string;
       };
+      current_auth_session: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
       curriculum_document_schema: {
         Args: Record<PropertyKey, never>;
         Returns: Json;
+      };
+      end_student_preview: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
       };
       enroll_parent_student: {
         Args: {

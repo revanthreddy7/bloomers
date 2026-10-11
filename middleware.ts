@@ -21,11 +21,50 @@ export async function middleware(request: NextRequest) {
       },
     },
   );
-  await client.auth.getClaims();
+  const claims = await client.auth.getClaims();
+  if (
+    request.method === 'GET' &&
+    !request.nextUrl.pathname.startsWith('/auth') &&
+    !claims.data?.claims
+  ) {
+    const target = request.nextUrl.clone();
+    target.pathname = '/auth/sign-in';
+    target.search = '';
+    const protectedResponse = NextResponse.redirect(target);
+    response.cookies
+      .getAll()
+      .forEach((cookie) => protectedResponse.cookies.set(cookie));
+    protectedResponse.headers.set('Cache-Control', 'private, no-store');
+    protectedResponse.headers.set('Referrer-Policy', 'no-referrer');
+    return protectedResponse;
+  }
+  if (
+    request.method === 'GET' &&
+    !request.nextUrl.pathname.startsWith('/preview')
+  ) {
+    const preview = await client.rpc('active_preview_student');
+    if (preview.data) {
+      const target = request.nextUrl.clone();
+      target.pathname = `/preview/${preview.data}`;
+      target.search = '';
+      const restricted = NextResponse.redirect(target);
+      response.cookies
+        .getAll()
+        .forEach((cookie) => restricted.cookies.set(cookie));
+      restricted.headers.set('Cache-Control', 'private, no-store');
+      restricted.headers.set('Referrer-Policy', 'no-referrer');
+      return restricted;
+    }
+  }
   response.headers.set('Cache-Control', 'private, no-store');
   response.headers.set('Referrer-Policy', 'no-referrer');
   return response;
 }
 export const config = {
-  matcher: ['/parent/:path*', '/auth/:path*', '/curriculum/:path*'],
+  matcher: [
+    '/parent/:path*',
+    '/auth/:path*',
+    '/curriculum/:path*',
+    '/preview/:path*',
+  ],
 };

@@ -1,7 +1,10 @@
 import 'server-only';
 import { notFound } from 'next/navigation';
 import { academicIdSchema } from '@/features/curriculum/schema';
-import { validateStructure } from '@/features/curriculum/engine';
+import {
+  validateStructure,
+  skills as curriculumSkills,
+} from '@/features/curriculum/engine';
 import { validatePreferences } from '@/features/planning/schema';
 import { getStudent } from '@/server/identity/students';
 export async function listStudentEnrollments(studentId: string) {
@@ -14,9 +17,13 @@ export async function listStudentEnrollments(studentId: string) {
   if (error) throw new Error('Enrollments could not be loaded');
   return { student, enrollments: data };
 }
-export async function getRoadmap(studentId: string, enrollmentId: string) {
+export async function getRoadmap(
+  studentId: string,
+  enrollmentId: string,
+  mode: 'parent' | 'preview' = 'parent',
+) {
   if (!academicIdSchema.safeParse(enrollmentId).success) notFound();
-  const { client, student } = await getStudent(studentId);
+  const { client, student } = await getStudent(studentId, mode);
   const enrollment = await client
     .from('student_courses')
     .select('*')
@@ -60,11 +67,19 @@ export async function getRoadmap(studentId: string, enrollmentId: string) {
   const document = validateStructure(publication.data.document),
     preferences = validatePreferences(availability.data.preferences);
   const [items, schedules, studentSkills] = await Promise.all([
-    client
-      .from('course_plan_items')
-      .select('*')
-      .eq('course_plan_id', plan.data.id)
-      .order('position'),
+    Promise.all(
+      [0, 1000].map((start) =>
+        client
+          .from('course_plan_items')
+          .select('*')
+          .eq('course_plan_id', plan.data!.id)
+          .order('position')
+          .range(start, start + 999),
+      ),
+    ).then((responses) => ({
+      data: responses.flatMap((r) => r.data ?? []),
+      error: responses.find((r) => r.error)?.error ?? null,
+    })),
     client
       .from('lesson_schedules')
       .select('*')
@@ -76,7 +91,12 @@ export async function getRoadmap(studentId: string, enrollmentId: string) {
       .select(
         'skill_id,mastery_score,confidence,evidence_count,last_evidence_id,assessment_state',
       )
-      .eq('student_id', studentId),
+      .eq('student_id', studentId)
+      .in(
+        'skill_id',
+        curriculumSkills(document).map((s) => s.id),
+      )
+      .limit(1000),
   ]);
   if (
     items.error ||

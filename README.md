@@ -1,6 +1,6 @@
-# Bloomers V1 — Phase 3
+# Bloomers V1 — Phase 4
 
-Verified foundation plus parent identity: signup, verified email, sign-in/out, password recovery, protected parent pages, student profiles, and versioned consent decisions. Phase 2 adds a versioned curriculum engine and authenticated read-only explorer. Phase 3 adds atomic course enrollment, unassessed skill initialization, deterministic plans and timezone-aware schedules, and persistent student roadmaps. Maya and the three-lesson pilot remain planned. `/api/health` checks liveness, not database readiness.
+Verified foundation plus parent identity: signup, verified email, sign-in/out, password recovery, protected parent pages, student profiles, and versioned consent decisions. Phase 2 adds a versioned curriculum engine and authenticated read-only explorer. Phase 3 adds atomic course enrollment, unassessed skill initialization, deterministic plans and timezone-aware schedules, and persistent student roadmaps. Phase 4 connects these records through parent learning views and a supervised, session-scoped student preview. Maya and the three-lesson pilot remain planned. `/api/health` checks liveness, not database readiness.
 
 ## Run locally
 
@@ -44,7 +44,7 @@ Stop Supabase with `npm run db:stop` (retains database volumes). Stop Next.js wi
 | `npm run db:test`                             | pgTAP authorization and constraint tests                      |
 | `npm audit --omit=dev --audit-level=moderate` | Production dependency audit                                   |
 
-See the [Phase 0 report](docs/PHASE_0_VERIFICATION.md), [Phase 1 report](docs/PHASE_1_VERIFICATION.md), [Phase 2 report](docs/PHASE_2_VERIFICATION.md), and [Phase 3 report](docs/PHASE_3_VERIFICATION.md) for actual results. CI uses clean installs, application checks/build, a production audit, and a separate Supabase reset/lint/test job. GitHub execution requires pushing the repository and has not been observed locally.
+See the [Phase 0 report](docs/PHASE_0_VERIFICATION.md), [Phase 1 report](docs/PHASE_1_VERIFICATION.md), [Phase 2 report](docs/PHASE_2_VERIFICATION.md), [Phase 3 report](docs/PHASE_3_VERIFICATION.md), and [Phase 4 report](docs/PHASE_4_VERIFICATION.md) for actual results. CI uses clean installs, application checks/build, a production audit, and a separate Supabase reset/lint/test job. GitHub execution requires pushing the repository and has not been observed locally.
 
 ## Modular monolith
 
@@ -99,7 +99,7 @@ When a hosted environment is needed in a later phase:
 
 ## Limitations
 
-Dashboards, realtime teaching, learning rules, adaptive scheduling, uploads, student login, and AI calls are not implemented. Draft consent grants await approval; withdrawals and historical decisions are implemented. The schema establishes boundaries, not complete business workflows. Version-scoped prerequisite graphs now reject cycles, and enrollment/plan version pins prevent automatic curriculum transitions. Initial enrollment and scheduling are implemented; evidence-based personalization and adaptive recalculation remain later work.
+Parent learning views and the supervised student preview are implemented. Realtime teaching, assessed mastery rules, adaptive scheduling, uploads, independent student login and AI calls remain planned. Draft consent grants await approval; withdrawals and historical decisions are implemented. Version-scoped prerequisite graphs reject cycles, and enrollment/plan version pins prevent automatic curriculum transitions. Initial enrollment and scheduling are implemented; evidence-based personalization and adaptive recalculation remain later work.
 
 The production audit is clean at verification time. The full audit still reports five high development-only findings in Next ESLint plugin → fast-glob → micromatch → braces. No patched braces version was available. The PostCSS override fixes the runtime finding; do not use `npm audit fix --force` to downgrade the framework. Recheck on updates. See [ADR 0004](docs/architecture/0004-toolchain.md).
 
@@ -144,7 +144,7 @@ Published snapshots are immutable. Draft saves use revision checks; publication 
 
 Read [Curriculum foundation](docs/CURRICULUM_FOUNDATION.md), [ADR 0007](docs/architecture/0007-versioned-curriculum.md), and [Maya Teaching Studio contract](docs/MAYA_TEACHING_STUDIO_CONTRACT.md) for schemas, service contracts, future editor workflows, and controlled student migration. Course documents are bounded atomic JSON snapshots, validated by Zod and PostgreSQL pg_jsonschema. Keep the checked-in schema, migration validator, sample fixture, and seed aligned; tests enforce this. New document schema versions require additive migrations.
 
-The Phase 2 migration intentionally fails if an existing installation has unversioned enrollments without a reviewed legacy snapshot. This local Phase 1 installation has no enrollment workflow. Prepare a reviewed snapshot/backfill before applying to such an installation; never fabricate historical requirements or reset hosted data. Studio editing, upload ingestion, teaching-policy activation, LLM integration, and adaptive planning are future work.
+The Phase 2 migration intentionally fails if an existing installation has unversioned enrollments without a reviewed legacy snapshot. The Phase 1 baseline had no enrollment workflow. Prepare a reviewed snapshot/backfill before applying to such an installation; never fabricate historical requirements or reset hosted data. Studio editing, upload ingestion, teaching-policy activation, LLM integration, and adaptive planning are future work.
 
 ## Enroll and view a learning roadmap
 
@@ -157,3 +157,13 @@ The Phase 2 migration intentionally fails if an existing installation has unvers
 Publishing another curriculum version never rewrites this enrollment or schedule. Identical retries return the same records; changed preferences/version cannot silently replace them. Nonexistent and ambiguous DST local times are rejected, so select another time. Initial schedule editing and adaptive recalculation are not yet enabled. No consent-gated media or AI capability is activated by enrollment.
 
 Read [Student course planning](docs/STUDENT_COURSE_PLANNING.md), [ADR 0008](docs/architecture/0008-initial-course-planning.md), and the [Phase 3 verification report](docs/PHASE_3_VERIFICATION.md). The canonical existing enrollment/planning/scheduling tables are reused; legacy incomplete enrollments require reviewed initialization. Run SQL assertions on a clean local seed **before** browser tests create synthetic records.
+
+## Parent application and student preview
+
+Sign in and choose a student using **Selected student**. Navigate Overview, Course, Progress, Homework, Schedule and Settings. Existing student cards/profiles, enrollment and curriculum links remain available. Course uses the pinned publication and persisted roadmap; Schedule displays real UTC reservations in the selected course timezone with previous/current/next weeks. Newly enrolled skills remain **Not yet assessed**. Attendance and homework are empty until actual records exist; there are no invented percentages, assignments or AI insights.
+
+Choose **Open student preview** from a student's overview. Home, Course, Homework and Progress show that student's read-only learning space. A visible banner identifies the parent-assisted session. The database narrows the current parent session to one student and denies parent mutations; sibling selection, settings and consent views are inaccessible. Refresh preserves this scope. Choose **Return to parent mode**, then **I’m the parent — continue**, to restore parent context and switching.
+
+Keep the guardian present. This supervised preview retains parent authentication and is not a secure unattended device handoff or child login. Its return button is not guardian authentication. Close other parent tabs before preview. Future independent student access requires reviewed limited credentials, guardian return authentication and consent/eligibility decisions; no student credentials are created now. No classroom, voice, camera, uploads, avatar, AI or Phase 5 workflow is activated.
+
+See [application view contracts and navigation](docs/APPLICATION_SHELL.md), [preview architecture ADR](docs/architecture/0009-application-shell-and-student-preview.md), and [Phase 4 verification](docs/PHASE_4_VERIFICATION.md).
