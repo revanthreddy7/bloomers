@@ -7,7 +7,7 @@ import {
   developerEventSchema,
   developerSnapshotSchema,
   developmentStepSchema,
-  stepAction,
+  developmentInstructions,
   type DeveloperSnapshot,
   type DevelopmentStep,
 } from '@/features/maya/development';
@@ -75,7 +75,11 @@ export class DevelopmentSession {
   private responses = new Set<string>();
   private calls = new Set<string>();
   private completed = new Map<string, { responseId: string; epoch: number }>();
-  private acceptedSteps = new Set<string>();
+  private board = new Map<
+    string,
+    z.infer<typeof mayaCommandSchema>['action']
+  >();
+  private connecting = false;
   private turns = 0;
   private activeResponse: string | null = null;
   private awaitingResponse = false;
@@ -172,7 +176,7 @@ export class DevelopmentSession {
     this.event('started', {
       fixture: this.approval.fixture,
       model: this.approval.model,
-      policyVersion: 'maya-adult-dev-1',
+      policyVersion: 'maya-adult-dev-2',
       approvedBudgetCents: this.approval.budgetCents,
     });
     await this.save();
@@ -190,24 +194,6 @@ export class DevelopmentSession {
         await this.transport.hangup(result.callId);
         throw new Error('Setup expired.');
       }
-      this.connection = await this.transport.attach(
-        result.callId,
-        (event) => {
-          this.queue = this.queue
-            .then(() => this.providerEvent(event))
-            .catch(() => this.stop('provider_failure'));
-        },
-        () => {
-          void this.stop('provider_failure');
-        },
-      );
-      if (this.status !== 'active') {
-        this.connection.close();
-        throw new Error('Setup interrupted.');
-      }
-      this.requestResponse(
-        'Greet the adult tester briefly, state the objective, and propose the equation step through teach_step.',
-      );
       return { sdp: result.sdp, snapshot: this.snapshot() };
     } catch {
       await this.stop('provider_failure');
@@ -216,13 +202,68 @@ export class DevelopmentSession {
       );
     }
   }
+  async ready() {
+    if (this.status !== 'active' || !this.callId)
+      throw new Error('Session unavailable.');
+    if (this.connection || this.connecting) return this.snapshot();
+    this.connecting = true;
+    try {
+      this.connection = await this.transport.attach(
+        this.callId,
+        (event) => {
+          void this.run(() => this.providerEvent(event)).catch(() =>
+            this.stop('provider_failure', { stage: 'event_validation' }),
+          );
+        },
+        (detail) => {
+          void this.stop(
+            'provider_failure',
+            detail ?? { stage: 'sideband_failure' },
+          );
+        },
+      );
+      if (this.status !== 'active') {
+        this.connection.close();
+        throw new Error('Setup interrupted.');
+      }
+      this.event('connected');
+      this.requestResponse(
+        'Greet the adult naturally. Introduce integer arithmetic and propose a first board example through teach_step. Ask one question and wait.',
+      );
+      await this.save();
+      return this.snapshot();
+    } catch {
+      await this.stop('provider_failure', { stage: 'sideband_setup' });
+      throw new Error('Sideband setup failed.');
+    } finally {
+      this.connecting = false;
+    }
+  }
+  async pause() {
+    if (this.status !== 'active') return this.snapshot();
+    await this.interrupt();
+    this.status = 'paused';
+    this.event('paused');
+    await this.save();
+    return this.snapshot();
+  }
+  async resume() {
+    if (this.status !== 'paused') return this.snapshot();
+    this.status = 'active';
+    this.event('resumed');
+    this.requestResponse(
+      `Resume the discussion briefly from this actual board: ${JSON.stringify([...this.board])}. Ask whether the adult wants clarification before continuing.`,
+    );
+    await this.save();
+    return this.snapshot();
+  }
   private requestResponse(instructions: string, speakOnly = false) {
     if (this.status !== 'active') return;
     if (this.activeResponse || this.awaitingResponse) {
       this.queuedResponse = { instructions, speakOnly };
       return;
     }
-    if (++this.turns > 8) {
+    if (++this.turns > 40) {
       void this.stop('ended');
       return;
     }
@@ -233,23 +274,71 @@ export class DevelopmentSession {
       type: 'response.create',
       response: {
         instructions,
-        max_output_tokens: 256,
+        max_output_tokens: 512,
         tool_choice: speakOnly ? 'none' : 'auto',
       },
     });
   }
   private async providerEvent(raw: unknown) {
-    if (this.status !== 'active') return;
+    if (['ended', 'abandoned'].includes(this.status)) return;
     if (this.events.length >= 180) return this.stop('ended');
     const event = z.object({ type: z.string().max(100) }).parse(raw);
-    if (event.type === 'error' || event.type === 'session.updated')
-      return this.stop('provider_failure');
+    if (event.type === 'error')
+      return this.stop('provider_failure', { stage: 'provider_error' });
+    if (event.type === 'session.updated') {
+      const settings = z
+        .object({
+          session: z.object({
+            model: z.literal('gpt-realtime-2.1'),
+            instructions: z.literal(developmentInstructions),
+            max_output_tokens: z.number().int().min(1).max(512),
+            tools: z
+              .array(
+                z.object({
+                  name: z.literal('teach_step'),
+                  type: z.literal('function'),
+                }),
+              )
+              .length(1),
+            audio: z.object({
+              input: z.object({
+                turn_detection: z.object({
+                  create_response: z.literal(false),
+                  interrupt_response: z.literal(false),
+                }),
+              }),
+              output: z.object({ voice: z.literal('marin') }),
+            }),
+          }),
+        })
+        .safeParse(raw);
+      if (!settings.success)
+        return this.stop('provider_failure', {
+          stage: 'session_reconfigured',
+          fields: [
+            ...new Set(
+              settings.error.issues
+                .map((issue) => issue.path[1])
+                .filter((field) =>
+                  [
+                    'model',
+                    'instructions',
+                    'max_output_tokens',
+                    'tools',
+                    'audio',
+                  ].includes(String(field)),
+                ),
+            ),
+          ],
+        });
+      return;
+    }
     if (event.type === 'response.created') {
       const created = z
         .object({ response: z.object({ id: z.string().max(200) }) })
         .parse(raw);
-      if (!this.awaitingResponse || this.responseEpochs.size >= 8)
-        return this.stop('provider_failure');
+      if (!this.awaitingResponse || this.responseEpochs.size >= 40)
+        return this.stop('provider_failure', { stage: 'unexpected_response' });
       this.awaitingResponse = false;
       this.activeResponse = created.response.id;
       this.responseEpochs.set(created.response.id, this.requestedEpoch);
@@ -283,18 +372,11 @@ export class DevelopmentSession {
           ? developmentStepSchema.safeParse(JSON.parse(call.arguments))
           : null;
       const step = parsed?.success ? parsed.data : null;
-      const prerequisites =
-        step?.step === 'subtract'
-          ? ['equation']
-          : step?.step === 'divide'
-            ? ['subtract']
-            : step?.step === 'check'
-              ? ['divide']
-              : [];
       if (
         !step ||
         this.pending ||
-        prerequisites.some((s) => !this.acceptedSteps.has(s))
+        this.status !== 'active' ||
+        (step.action.kind === 'erase' && !this.board.has(step.action.targetId))
       ) {
         this.event('tool_rejected', { callId: call.call_id });
         this.connection?.send({
@@ -306,7 +388,7 @@ export class DevelopmentSession {
               accepted: false,
               reason:
                 'Invalid, pending, or out-of-order step. Use actual board state.',
-              board: [...this.acceptedSteps],
+              board: [...this.board],
             }),
           },
         });
@@ -324,7 +406,7 @@ export class DevelopmentSession {
         this.event('tool_validated', {
           callId: call.call_id,
           turnId: this.pending.turnId,
-          step: step.step,
+          actionKind: step.action.kind,
         });
         this.connection?.send({
           type: 'conversation.item.create',
@@ -333,7 +415,7 @@ export class DevelopmentSession {
             call_id: call.call_id,
             output: JSON.stringify({
               accepted: true,
-              board: [...this.acceptedSteps],
+              board: [...this.board],
               instruction:
                 'Speak the validated narration and question, then wait.',
             }),
@@ -346,9 +428,12 @@ export class DevelopmentSession {
       }
     } else if (event.type === 'input_audio_buffer.speech_started') {
       await this.interrupt();
-    } else if (event.type === 'input_audio_buffer.committed') {
+    } else if (
+      event.type === 'input_audio_buffer.committed' &&
+      this.status === 'active'
+    ) {
       this.requestResponse(
-        `Respond to the adult's latest spoken turn. Current committed board steps: ${JSON.stringify([...this.acceptedSteps])}. Check reasoning, hint before revealing. Use teach_step if a board explanation is helpful.`,
+        `Respond to the adult's latest spoken turn. Current committed board steps: ${JSON.stringify([...this.board])}. Check reasoning, hint before revealing. Use teach_step if a board explanation is helpful.`,
       );
     } else if (event.type === 'response.done') {
       const done = z
@@ -389,6 +474,8 @@ export class DevelopmentSession {
       this.metric.responseLatencyMs.push(
         Math.max(0, this.now() - this.lastRequestAt),
       );
+      if (this.metric.responseLatencyMs.length > 20)
+        this.metric.responseLatencyMs.shift();
     }
     await this.save();
   }
@@ -423,16 +510,22 @@ export class DevelopmentSession {
         anchor: 'speech_start',
         offsetMs: 0,
       },
-      action: stepAction(pending.step.step),
+      action: pending.step.action,
     });
     this.event('board_applied', { command, responseId });
-    this.acceptedSteps.add(pending.step.step);
+    if (pending.step.action.kind === 'clear_board') this.board.clear();
+    else if (pending.step.action.kind === 'erase')
+      this.board.delete(pending.step.action.targetId);
+    else this.board.set(turnId, pending.step.action);
     this.completed.set(turnId, { responseId, epoch });
     this.metric.boardLatencyMs.push(Math.max(0, now - pending.proposedAt));
     const audioStartedAt = this.audioStarted.get(responseId);
     if (audioStartedAt !== undefined)
       this.metric.coordinationDelayMs.push(Math.max(0, now - audioStartedAt));
     this.pending = null;
+    this.metric.boardLatencyMs = this.metric.boardLatencyMs.slice(-20);
+    this.metric.coordinationDelayMs =
+      this.metric.coordinationDelayMs.slice(-20);
     await this.save();
     return this.snapshot();
   }
@@ -454,18 +547,22 @@ export class DevelopmentSession {
     this.lastHeartbeat = this.now();
   }
   async tick() {
-    if (this.status !== 'active') return;
+    if (['ended', 'abandoned'].includes(this.status)) return;
     if (
       this.now() >= this.stopAt ||
       this.now() - this.lastHeartbeat > 15000 ||
+      (!this.connection && this.now() - this.startedAt > 15000) ||
       this.events.length >= 180 ||
       ((this.activeResponse || this.awaitingResponse) &&
-        this.now() - this.lastRequestAt > 15000) ||
+        this.now() - this.lastRequestAt > 30000) ||
       (this.pending && this.now() - this.pending.proposedAt > 15000)
     )
       await this.stop('ended');
   }
-  stop(reason: 'ended' | 'provider_failure') {
+  stop(
+    reason: 'ended' | 'provider_failure',
+    detail: Record<string, unknown> = {},
+  ) {
     if (this.stopping) return this.stopping;
     this.status = reason === 'provider_failure' ? 'abandoned' : 'ended';
     this.epoch++;
@@ -475,7 +572,7 @@ export class DevelopmentSession {
     this.timer = null;
     this.connection?.close();
     this.connection = null;
-    this.event(reason);
+    this.event(reason, detail);
     if (reason === 'provider_failure') this.metric.failures++;
     this.stopping = (async () => {
       try {

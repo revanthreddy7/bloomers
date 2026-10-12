@@ -76,3 +76,7 @@ Phase 7 owns authoritative assessment, evidence, misconceptions and mastery. Pha
 ## Phase 6.5 follow-up
 
 The preceding adapter description records the Phase 6 baseline. [Adult developer integration](MAYA_DEVELOPMENT.md) now provides a separate authenticated synthetic console, server-mediated WebRTC/sideband control, validated equation proposals, playback acknowledgments, private local telemetry and fail-closed lease handling. Student preview remains mock-only. Default configuration is disabled; scoped founder approval and explicit adult opt-in remain required. Live voice and educational quality have not been verified by Stage A's fake transports. See [ADR 0012](architecture/0012-adult-development-call-control.md) and [Phase 6.5 verification](PHASE_6_5_VERIFICATION.md).
+
+## Stage B conversational repair
+
+The developer classroom now starts sideband/greeting only after the browser applies SDP and reports a connected peer/open channel. The `grade8-adult-v2` fixture uses teacher-selected protocol actions rather than fixed equation steps. VAD-completed spoken turns request contextual responses; validated proposals bind narration, response IDs and playback acknowledgments to dynamic board commands. Pause/resume preserves conversation and board while deadline/usage gates remain enforced. No real learning writes are enabled. [Repair verification](PHASE_6_5_TEACHING_REPAIR.md) separates fake-provider/browser results from pending audible adult validation.

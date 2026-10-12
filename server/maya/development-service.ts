@@ -71,7 +71,10 @@ export async function developerOperation(origin: string, raw: unknown) {
   const session = ownedDevelopmentSession(request.sessionId, identity);
   return session.run(async () => {
     await session.tick();
-    if (request.action === 'stop') await session.stop('ended');
+    if (request.action === 'ready') return session.ready();
+    else if (request.action === 'pause') return session.pause();
+    else if (request.action === 'resume') return session.resume();
+    else if (request.action === 'stop') await session.stop('ended');
     else if (request.action === 'interrupt') await session.interrupt();
     else if (request.action === 'heartbeat') session.heartbeat();
     else if (request.action === 'ack')

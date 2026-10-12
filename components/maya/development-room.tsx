@@ -12,11 +12,11 @@ import {
   type MayaScene,
 } from '@/features/classroom/protocol';
 import { MayaBoard } from './teaching';
-import type { VoiceState } from '@/features/maya/voice';
+import type { DevelopmentVoiceState } from '@/features/maya/development-voice';
 export function DevelopmentRoom({ ready }: { ready: boolean }) {
   const audio = useRef<HTMLAudioElement>(null),
     voice = useRef<DevelopmentVoice | null>(null);
-  const [state, setState] = useState<VoiceState>('off'),
+  const [state, setState] = useState<DevelopmentVoiceState>('off'),
     [snapshot, setSnapshot] = useState<DeveloperSnapshot | null>(null),
     [optIn, setOptIn] = useState(false),
     [error, setError] = useState('');
@@ -61,7 +61,10 @@ export function DevelopmentRoom({ ready }: { ready: boolean }) {
         command.epoch !== event.epoch
       )
         throw new Error('Invalid experiment replay');
-      scene.set(command.commandId, command.action);
+      if (command.action.kind === 'clear_board') scene.clear();
+      else if (command.action.kind === 'erase')
+        scene.delete(command.action.targetId);
+      else scene.set(command.commandId, command.action);
     }
   async function start() {
     setError('');
@@ -83,11 +86,20 @@ export function DevelopmentRoom({ ready }: { ready: boolean }) {
       <h2>{syntheticLesson.objective}</h2>
       <p role="status">
         Microphone{' '}
-        {state === 'off' || state === 'interrupted' ? 'OFF' : 'active'} · Maya{' '}
-        {state}
+        {state === 'off' || state === 'interrupted' || state === 'paused'
+          ? 'OFF'
+          : state === 'permission'
+            ? 'permission requested'
+            : 'active'}{' '}
+        · Maya {state} · Connection{' '}
+        {['listening', 'speaking', 'paused'].includes(state)
+          ? 'connected'
+          : ['permission', 'connecting'].includes(state)
+            ? 'connecting'
+            : 'disconnected'}
       </p>
       <p>
-        Camera, uploads and recording disabled. Live validation is pending
+        Camera, uploads and recording disabled. Live teaching requires a current
         founder approval. A usage threshold is an estimate, not a guaranteed
         spending cap.
       </p>
@@ -100,6 +112,10 @@ export function DevelopmentRoom({ ready }: { ready: boolean }) {
         I am an adult, will use only the synthetic lesson, and explicitly enable
         my microphone for this approved test.
       </label>
+      <p>
+        Maya leads the conversation and board. Speak naturally; no Next or
+        Continue is needed.
+      </p>
       <div className="maya-controls">
         <button
           disabled={!ready || !optIn || state !== 'off' || !!snapshot}
@@ -108,7 +124,24 @@ export function DevelopmentRoom({ ready }: { ready: boolean }) {
           Start approved voice test
         </button>
         <button
-          disabled={state === 'off'}
+          disabled={
+            !snapshot || !['active', 'paused'].includes(snapshot.status)
+          }
+          onClick={() =>
+            void (
+              state === 'paused'
+                ? voice.current!.resume()
+                : voice.current!.pause()
+            ).catch(() => {
+              setError('Pause/resume failed; ending the session.');
+              void voice.current?.stop();
+            })
+          }
+        >
+          {state === 'paused' ? 'Resume lesson' : 'Pause lesson'}
+        </button>
+        <button
+          disabled={state === 'off' || state === 'paused'}
           onClick={() =>
             void voice.current
               ?.interrupt()
@@ -150,6 +183,9 @@ export function DevelopmentRoom({ ready }: { ready: boolean }) {
           <p>{scenario.rubric.join(' · ')}</p>
         </section>
       ))}
+      <p>
+        <a href="/parent">Return to parent mode</a>
+      </p>
       {snapshot && (
         <>
           <h2>Experiment telemetry</h2>
@@ -159,6 +195,11 @@ export function DevelopmentRoom({ ready }: { ready: boolean }) {
               ? 'confirmed by provider response'
               : 'not confirmed'}
             .
+          </p>
+          <p>
+            {snapshot.metrics.usageComplete
+              ? 'Provider usage reported; cost remains an estimate.'
+              : 'Provider usage incomplete. The displayed estimate does not establish actual cost.'}
           </p>
           <pre>{JSON.stringify(snapshot.metrics, null, 2)}</pre>
           <p>

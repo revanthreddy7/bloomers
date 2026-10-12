@@ -52,7 +52,7 @@ it('uses the documented unified interface and pinned model without returning API
       session: expect.objectContaining({
         type: 'realtime',
         model: 'gpt-realtime-2.1',
-        max_output_tokens: 256,
+        max_output_tokens: 512,
         tracing: null,
         tools: [expect.objectContaining({ name: 'teach_step' })],
       }),

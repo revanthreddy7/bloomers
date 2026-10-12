@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { developerSnapshotSchema, type DeveloperSnapshot } from './development';
 import type { VoiceState } from './voice';
+export type DevelopmentVoiceState = VoiceState | 'paused' | 'permission';
 export class DevelopmentVoice {
   private peer: RTCPeerConnection | null = null;
   private stream: MediaStream | null = null;
@@ -13,9 +14,10 @@ export class DevelopmentVoice {
   private playback = new Set<string>();
   private acknowledged = new Set<string>();
   private polling = false;
+  private paused = false;
   constructor(
     private readonly audio: HTMLAudioElement,
-    private readonly state: (value: VoiceState) => void,
+    private readonly state: (value: DevelopmentVoiceState) => void,
     private readonly update: (value: DeveloperSnapshot) => void,
   ) {}
   private async post(value: unknown) {
@@ -35,11 +37,11 @@ export class DevelopmentVoice {
       );
     this.cleanup();
     const generation = this.generation;
-    this.state('connecting');
+    this.state('permission');
     this.abort = new AbortController();
     this.timer = setTimeout(() => {
       void this.stop();
-    }, 10000);
+    }, 15000);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
@@ -50,6 +52,7 @@ export class DevelopmentVoice {
         return;
       }
       this.stream = stream;
+      this.state('connecting');
       const peer = (this.peer = new RTCPeerConnection());
       stream.getAudioTracks().forEach((track) => peer.addTrack(track, stream));
       peer.ontrack = (event) => {
@@ -78,6 +81,7 @@ export class DevelopmentVoice {
               response_id: z.string().max(200).optional(),
             })
             .parse(JSON.parse(event.data));
+          if (this.paused && envelope.type !== 'error') return;
           if (
             envelope.type === 'output_audio_buffer.started' &&
             envelope.response_id
@@ -86,9 +90,10 @@ export class DevelopmentVoice {
             this.state('speaking');
           } else if (envelope.type === 'output_audio_buffer.stopped')
             this.state('listening');
-          else if (envelope.type === 'input_audio_buffer.speech_started')
+          else if (envelope.type === 'input_audio_buffer.speech_started') {
+            this.playback.clear();
             this.state('listening');
-          else if (envelope.type === 'error') void this.stop();
+          } else if (envelope.type === 'error') void this.stop();
         } catch {
           void this.stop();
         }
@@ -116,6 +121,34 @@ export class DevelopmentVoice {
         return;
       }
       await peer.setRemoteDescription({ type: 'answer', sdp: result.sdp });
+      await new Promise<void>((resolve, reject) => {
+        const began = Date.now();
+        const interval = setInterval(() => {
+          if (
+            generation !== this.generation ||
+            Date.now() - began > 15000 ||
+            ['failed', 'closed'].includes(peer.connectionState)
+          ) {
+            clearInterval(interval);
+            reject(new Error('Connection stopped or timed out.'));
+          } else if (
+            peer.connectionState === 'connected' &&
+            channel.readyState === 'open'
+          ) {
+            clearInterval(interval);
+            resolve();
+          }
+        }, 50);
+        channel.onclose = () => {
+          void this.stop();
+        };
+      });
+      if (generation !== this.generation) return;
+      const ready = developerSnapshotSchema.parse(
+        await this.post({ action: 'ready', sessionId: this.sessionId }),
+      );
+      if (generation !== this.generation) return;
+      if (ready.status !== 'active') throw new Error('Provider unavailable.');
       if (this.timer) clearTimeout(this.timer);
       this.timer = setTimeout(
         () => {
@@ -124,7 +157,7 @@ export class DevelopmentVoice {
         Math.max(0, result.snapshot.stopAt - Date.now()),
       );
       this.state('listening');
-      this.update(result.snapshot);
+      this.update(ready);
       this.poll = setInterval(() => {
         void this.refresh();
       }, 500);
@@ -142,7 +175,7 @@ export class DevelopmentVoice {
         await this.post({ action: 'heartbeat', sessionId: this.sessionId }),
       );
       this.update(snapshot);
-      if (snapshot.status !== 'active') {
+      if (['ended', 'abandoned'].includes(snapshot.status)) {
         this.cleanup();
         return;
       }
@@ -180,7 +213,37 @@ export class DevelopmentVoice {
         ),
       );
   }
+  async pause() {
+    this.paused = true;
+    this.stream?.getAudioTracks().forEach((track) => {
+      track.enabled = false;
+    });
+    this.playback.clear();
+    if (this.channel?.readyState === 'open')
+      this.channel.send(JSON.stringify({ type: 'output_audio_buffer.clear' }));
+    if (this.sessionId)
+      this.update(
+        developerSnapshotSchema.parse(
+          await this.post({ action: 'pause', sessionId: this.sessionId }),
+        ),
+      );
+    this.state('paused');
+  }
+  async resume() {
+    if (!this.sessionId) return;
+    this.paused = false;
+    this.update(
+      developerSnapshotSchema.parse(
+        await this.post({ action: 'resume', sessionId: this.sessionId }),
+      ),
+    );
+    this.stream?.getAudioTracks().forEach((track) => {
+      track.enabled = true;
+    });
+    this.state('listening');
+  }
   private cleanup() {
+    this.paused = false;
     this.generation++;
     this.abort?.abort();
     this.abort = null;
@@ -194,6 +257,11 @@ export class DevelopmentVoice {
       this.peer.close();
     }
     this.peer = null;
+    if (this.channel) {
+      this.channel.onclose = null;
+      this.channel.onopen = null;
+      this.channel.onmessage = null;
+    }
     this.channel?.close();
     this.channel = null;
     this.stream?.getTracks().forEach((track) => track.stop());

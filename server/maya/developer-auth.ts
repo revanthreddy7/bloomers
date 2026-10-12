@@ -5,11 +5,11 @@ import { createSessionClient } from '@/server/supabase-session';
 export const approvalSchema = z.strictObject({
   approvalId: z.uuid(),
   developerId: z.uuid(),
-  fixture: z.literal('equation-adult-v1'),
+  fixture: z.literal('grade8-adult-v2'),
   model: z.literal('gpt-realtime-2.1'),
   expiresAt: z.iso.datetime(),
-  durationSeconds: z.number().int().min(15).max(120),
-  budgetCents: z.number().int().min(1).max(100),
+  durationSeconds: z.number().int().min(15).max(300),
+  budgetCents: z.number().int().min(1).max(200),
   acceptUncappedProviderRisk: z.literal(true),
   maxSessions: z.literal(1),
 });

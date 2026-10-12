@@ -9,7 +9,13 @@ export default async function ParentLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireParent();
+  const { user } = await requireParent();
+  const developerLink =
+    process.env.NODE_ENV === 'development' &&
+    (process.env.MAYA_DEV_USER_IDS ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .includes(user.id);
   const { students, hasMore } = await listApplicationStudents();
   return (
     <div className="identity-shell">
@@ -24,6 +30,9 @@ export default async function ParentLayout({
           <Link href="/parent">Students</Link>
           <Link href="/curriculum">Curriculum</Link>
           <Link href="/parent/settings">Account</Link>
+          {developerLink && (
+            <Link href="/developer/maya">Live Maya · adult test</Link>
+          )}
           <form action={signOut}>
             <button className="text-button">Sign out</button>
           </form>

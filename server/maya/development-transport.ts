@@ -15,7 +15,7 @@ export interface DevelopmentTransport {
   attach(
     callId: string,
     onEvent: (event: unknown) => void,
-    onFailure: () => void,
+    onFailure: (detail?: { stage: string; closeCode?: number }) => void,
   ): Promise<DevelopmentConnection>;
   hangup(callId: string): Promise<void>;
 }
@@ -35,7 +35,7 @@ export function openAITransport(): DevelopmentTransport {
           model: 'gpt-realtime-2.1',
           instructions: developmentInstructions,
           output_modalities: ['audio'],
-          max_output_tokens: 256,
+          max_output_tokens: 512,
           tracing: null,
           tools: [developmentTool],
           tool_choice: 'auto',
@@ -84,7 +84,7 @@ export function openAITransport(): DevelopmentTransport {
           reject(new Error('Sideband setup timed out.'));
         }, 6000);
         ws.on('error', () => {
-          if (!intentional) onFailure();
+          if (!intentional) onFailure({ stage: 'sideband_error' });
         });
         ws.on('event', (event) => {
           if (event.type === 'error') {
@@ -119,8 +119,9 @@ export function openAITransport(): DevelopmentTransport {
           }
           onEvent(event);
         });
-        ws.socket.on('close', () => {
-          if (!intentional) onFailure();
+        ws.socket.on('close', (code) => {
+          if (!intentional)
+            onFailure({ stage: 'sideband_closed', closeCode: code });
         });
         ws.socket.on('open', () => {
           opened = true;

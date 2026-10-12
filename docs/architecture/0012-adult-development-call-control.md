@@ -33,3 +33,7 @@ flowchart LR
   Usage --> Stop[Server hangup and local track cleanup]
   Stop --> Journal[Private local experiment journal]
 ```
+
+## Stage B revision — conversational teaching
+
+Fixture/policy advance to `grade8-adult-v2`/`maya-adult-dev-2`. Teacher proposals contain validated protocol actions rather than fixed equation-step names. The server returns SDP before attaching sideband; authenticated browser-ready follows a connected peer/open data channel, then the server greets and handles spoken turns. Maximum authorized scope is now 300 seconds, 40 generated responses and 512 output tokens each, with the per-manifest estimated threshold retained. Pause disables local audio tracks, invalidates pending generations and keeps server deadline enforcement; resume preserves the provider conversation and actual board. Student preview and learning writes remain inactive. Bounded failure stages/close codes improve diagnostics. These changes await a new approved audible adult test; previous failed attempts are not reclassified as successes.
