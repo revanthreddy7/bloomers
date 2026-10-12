@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { getPublicEnv } from '@/lib/env';
+import { transientAuthFailure } from '@/features/identity/auth-failure';
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -22,6 +23,19 @@ export async function middleware(request: NextRequest) {
     },
   );
   const claims = await client.auth.getClaims();
+  if (transientAuthFailure(claims.error)) {
+    const unavailable = NextResponse.json(
+      { error: 'Authentication is temporarily unavailable.' },
+      { status: 503 },
+    );
+    unavailable.headers.set('Cache-Control', 'private, no-store');
+    unavailable.headers.set('Referrer-Policy', 'no-referrer');
+    unavailable.headers.set('Retry-After', '1');
+    response.cookies
+      .getAll()
+      .forEach((cookie) => unavailable.cookies.set(cookie));
+    return unavailable;
+  }
   if (
     request.method === 'GET' &&
     !request.nextUrl.pathname.startsWith('/auth') &&

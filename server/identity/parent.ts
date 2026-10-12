@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createSessionClient } from '@/server/supabase-session';
+import { transientAuthFailure } from '@/features/identity/auth-failure';
 
 export const requireParent = cache(async () => {
   const client = await createSessionClient();
@@ -9,6 +10,10 @@ export const requireParent = cache(async () => {
     data: { user },
     error,
   } = await client.auth.getUser();
+  if (transientAuthFailure(error))
+    throw new Error(
+      'Authentication is temporarily unavailable. Please try again.',
+    );
   if (error || !user) redirect('/auth/sign-in');
   if (!user.email_confirmed_at) redirect('/auth/verify-email');
   const preview = await client.rpc('active_preview_student');

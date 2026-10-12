@@ -72,3 +72,7 @@ Before activation, approve an adult-only local test scope and budget-risk policy
 Before a child pilot, founders must separately approve legal age/jurisdiction and guardian eligibility, consent wording/capability decisions, student authentication/handoff, retention/deletion/withdrawal, moderation, reporting and a staffed escalation policy. The shipped simulation's fixed scripts accept no free-form student utterances. Safety-sensitive future input must stop teaching and follow an approved adult/human escalation process; this phase does not invent an approved clinical or child-safety policy. Camera, recording and uploads remain disabled.
 
 Phase 7 owns authoritative assessment, evidence, misconceptions and mastery. Phase 8 owns validated summaries and homework continuity. Phase 9 owns adaptive schedules. None is activated here.
+
+## Phase 6.5 follow-up
+
+The preceding adapter description records the Phase 6 baseline. [Adult developer integration](MAYA_DEVELOPMENT.md) now provides a separate authenticated synthetic console, server-mediated WebRTC/sideband control, validated equation proposals, playback acknowledgments, private local telemetry and fail-closed lease handling. Student preview remains mock-only. Default configuration is disabled; scoped founder approval and explicit adult opt-in remain required. Live voice and educational quality have not been verified by Stage A's fake transports. See [ADR 0012](architecture/0012-adult-development-call-control.md) and [Phase 6.5 verification](PHASE_6_5_VERIFICATION.md).

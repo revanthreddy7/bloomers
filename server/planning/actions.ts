@@ -8,6 +8,7 @@ import { initialPlan } from '@/features/planning/planner';
 import { getStudent } from '@/server/identity/students';
 import type { ActionState } from '@/features/identity/validation';
 import type { Json } from '@/types/database';
+import { measureEnrollment } from '@/server/observability/enrollment';
 export async function enrollStudent(
   studentId: string,
   _previous: ActionState,
@@ -39,13 +40,17 @@ export async function enrollStudent(
         'Choose a published course, valid timezone, date, duration, and exactly one weekday per weekly lesson.',
     };
   }
-  const { client } = await getStudent(studentId);
-  const publication = await client
-    .from('curriculum_versions')
-    .select('document,status')
-    .eq('id', versionId)
-    .eq('status', 'published')
-    .maybeSingle();
+  const { client } = await measureEnrollment('student_authorization', () =>
+    getStudent(studentId),
+  );
+  const publication = await measureEnrollment('publication_read', () =>
+    client
+      .from('curriculum_versions')
+      .select('document,status')
+      .eq('id', versionId)
+      .eq('status', 'published')
+      .maybeSingle(),
+  );
   if (publication.error || !publication.data)
     return { error: 'Select an available published course.' };
   // Calendar projection runs after the database's idempotency check, so old retries
@@ -57,12 +62,16 @@ export async function enrollStudent(
       error: 'This course cannot be planned with the selected lesson duration.',
     };
   }
-  const { data, error } = await client.rpc('enroll_parent_student', {
-    p_request_id: requestId,
-    p_student_id: studentId,
-    p_version_id: versionId,
-    p_preferences: preferences as unknown as Json,
-  });
+  const { data, error } = await measureEnrollment(
+    'enrollment_transaction',
+    () =>
+      client.rpc('enroll_parent_student', {
+        p_request_id: requestId,
+        p_student_id: studentId,
+        p_version_id: versionId,
+        p_preferences: preferences as unknown as Json,
+      }),
+  );
   if (error) {
     const messages: Record<string, string> = {
       '42501': 'You cannot enroll this student.',

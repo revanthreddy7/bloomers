@@ -1771,6 +1771,10 @@ export type Database = {
         Returns: Json;
       };
       is_academic_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
+      is_current_auth_session_active: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
       is_parent_of: { Args: { p_student: string }; Returns: boolean };
       limit_identity_mutations: { Args: { actor: string }; Returns: undefined };
       maya_mock_event_schema_internal: {
