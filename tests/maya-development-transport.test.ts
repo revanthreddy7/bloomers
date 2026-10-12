@@ -9,6 +9,7 @@ const mock = vi.hoisted(() => ({
 vi.mock('server-only', () => ({}));
 vi.mock('openai', () => ({
   default: class {
+    static APIError = class extends Error {};
     realtime = { calls: { create: mock.create, hangup: mock.hangup } };
     constructor(options: unknown) {
       mock.options(options);
@@ -38,6 +39,50 @@ beforeEach(() => {
     }),
   );
   mock.hangup.mockResolvedValue(undefined);
+});
+it('classifies sideband failures without logging raw SDK messages', async () => {
+  const log = vi.spyOn(console, 'info').mockImplementation(() => {});
+  try {
+    const fail = vi.fn();
+    const connection = await openAITransport().attach(
+      'rtc_fake',
+      vi.fn(),
+      fail,
+    );
+    const socket = mock.sockets[0] as EventEmitter;
+    socket.emit(
+      'error',
+      new Error('Unexpected server response: 503 sk-private-key'),
+    );
+    expect(JSON.parse(log.mock.calls[0][0])).toEqual({
+      event: 'maya_sideband_failure',
+      category: 'http_handshake',
+      httpStatus: 503,
+    });
+    socket.emit('error', new Error('could not send data: private prompt'));
+    expect(JSON.parse(log.mock.calls[1][0]).category).toBe('send');
+    expect(JSON.stringify(log.mock.calls)).not.toMatch(/private|sk-/);
+    expect(fail).toHaveBeenCalledWith({ stage: 'sideband_error' });
+    connection.close();
+  } finally {
+    log.mockRestore();
+  }
+});
+it('keeps hangup failures visible without exposing the error message', async () => {
+  const log = vi.spyOn(console, 'info').mockImplementation(() => {});
+  try {
+    mock.hangup.mockRejectedValueOnce(
+      new Error('private provider response sk-secret'),
+    );
+    await expect(openAITransport().hangup('rtc_fake')).rejects.toThrow();
+    expect(JSON.parse(log.mock.calls[0][0])).toEqual({
+      event: 'maya_hangup_failure',
+      httpStatus: null,
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toMatch(/private|sk-/);
+  } finally {
+    log.mockRestore();
+  }
 });
 afterEach(() => vi.unstubAllEnvs());
 it('uses the documented unified interface and pinned model without returning API credentials', async () => {

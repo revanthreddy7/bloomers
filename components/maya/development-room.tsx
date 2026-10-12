@@ -72,7 +72,7 @@ export function DevelopmentRoom({ ready }: { ready: boolean }) {
       await voice.current?.start(optIn);
     } catch {
       setError(
-        'Connection denied or unavailable. Check the approved local configuration.',
+        'Live connection failed. Check the experiment telemetry below; do not retry until provider termination and a new approval are confirmed.',
       );
     }
   }
@@ -189,6 +189,12 @@ export function DevelopmentRoom({ ready }: { ready: boolean }) {
       {snapshot && (
         <>
           <h2>Experiment telemetry</h2>
+          {snapshot.status === 'abandoned' && (
+            <p role="alert">
+              Provider connection failed. This approval has been consumed; a new
+              paid start is blocked pending cleanup and renewed approval.
+            </p>
+          )}
           <p>
             Session {snapshot.status}. Termination{' '}
             {snapshot.metrics.terminationConfirmed

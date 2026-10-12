@@ -83,7 +83,26 @@ export function openAITransport(): DevelopmentTransport {
           ws.close();
           reject(new Error('Sideband setup timed out.'));
         }, 6000);
-        ws.on('error', () => {
+        ws.on('error', (error) => {
+          // Never log the raw SDK message: it can include prompts or credentials.
+          const status = error.message.match(
+            /Unexpected server response: (\d{3})/,
+          )?.[1];
+          console.info(
+            JSON.stringify({
+              event: 'maya_sideband_failure',
+              category: status
+                ? 'http_handshake'
+                : error.message.includes('could not send data')
+                  ? 'send'
+                  : error.message.includes('could not parse websocket event')
+                    ? 'parse'
+                    : error.error
+                      ? 'provider_event'
+                      : 'transport',
+              httpStatus: status ? Number(status) : null,
+            }),
+          );
           if (!intentional) onFailure({ stage: 'sideband_error' });
         });
         ws.on('event', (event) => {
@@ -147,7 +166,18 @@ export function openAITransport(): DevelopmentTransport {
       });
     },
     async hangup(callId) {
-      await client.realtime.calls.hangup(callId);
+      try {
+        await client.realtime.calls.hangup(callId);
+      } catch (error) {
+        console.info(
+          JSON.stringify({
+            event: 'maya_hangup_failure',
+            httpStatus:
+              error instanceof OpenAI.APIError ? (error.status ?? null) : null,
+          }),
+        );
+        throw error;
+      }
     },
   };
 }
