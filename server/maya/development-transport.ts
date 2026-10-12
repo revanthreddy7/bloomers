@@ -86,7 +86,39 @@ export function openAITransport(): DevelopmentTransport {
         ws.on('error', () => {
           if (!intentional) onFailure();
         });
-        ws.on('event', onEvent);
+        ws.on('event', (event) => {
+          if (event.type === 'error') {
+            const code = event.error.code;
+            const knownCodes = [
+              'invalid_value',
+              'invalid_request_error',
+              'unknown_parameter',
+              'unsupported_parameter',
+              'conversation_already_has_active_response',
+              'response_cancel_not_active',
+              'session_not_ready',
+              'rate_limit_exceeded',
+              'insufficient_quota',
+              'server_error',
+              'invalid_api_key',
+            ];
+            const param = event.error.param;
+            console.info(
+              JSON.stringify({
+                event: 'maya_provider_failure',
+                code: code && knownCodes.includes(code) ? code : 'unrecognized',
+                param:
+                  param &&
+                  /^(response\.)?(max_output_tokens|tool_choice|instructions|output_modalities|conversation|input|model|audio)$/.test(
+                    param,
+                  )
+                    ? param
+                    : 'unrecognized',
+              }),
+            );
+          }
+          onEvent(event);
+        });
         ws.socket.on('close', () => {
           if (!intentional) onFailure();
         });

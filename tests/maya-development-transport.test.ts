@@ -85,3 +85,44 @@ it('attaches a bounded authenticated sideband and uses the documented hangup ope
   await transport.hangup('rtc_fake');
   expect(mock.hangup).toHaveBeenCalledWith('rtc_fake');
 });
+it('records only allowlisted error metadata, excluding provider messages and identifiers', async () => {
+  const log = vi.spyOn(console, 'info').mockImplementation(() => {});
+  try {
+    const receive = vi.fn();
+    const connection = await openAITransport().attach(
+      'rtc_fake',
+      receive,
+      vi.fn(),
+    );
+    const socket = mock.sockets[0] as EventEmitter;
+    const error = {
+      type: 'error',
+      event_id: 'private-event-id',
+      error: {
+        type: 'invalid_request_error',
+        code: 'invalid_value',
+        param: 'response.max_output_tokens',
+        message: 'private prompt and sk-secret-key',
+      },
+    };
+    socket.emit('event', error);
+    expect(JSON.parse(log.mock.calls[0][0])).toEqual({
+      event: 'maya_provider_failure',
+      code: 'invalid_value',
+      param: 'response.max_output_tokens',
+    });
+    socket.emit('event', {
+      ...error,
+      error: {
+        ...error.error,
+        code: 'sk-private-secret',
+        param: 'private-data',
+      },
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toMatch(/private|sk-secret/);
+    expect(receive).toHaveBeenCalledWith(error);
+    connection.close();
+  } finally {
+    log.mockRestore();
+  }
+});
