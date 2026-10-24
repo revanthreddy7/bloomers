@@ -120,3 +120,7 @@ Historical enrollment latency remains under investigation despite a tested trans
 ## 16. Phase 7 readiness
 
 Phase 7 was not started. The typed context/proposal/event boundaries support future reviewed assessment work, but experiments must never become genuine learning evidence. Proceed only with Phase 7's separately specified scope; live Phase 6.5 educational validation remains pending.
+
+## 17. Session recovery follow-up
+
+See [session recovery verification](PHASE_6_5_RECOVERY_VERIFICATION.md) and the [operational runbook](MAYA_SESSION_RECOVERY.md) for authenticated expired-session recovery, cleanup/connection diagnostics, executed regression results and the proposed next adult test. This follow-up preserves the unconfirmed provider termination and requires fresh paid approval; it does not establish a successful live listening test.

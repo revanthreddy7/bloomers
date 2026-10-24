@@ -1,8 +1,13 @@
 import 'server-only';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
-import { mkdir, open, writeFile, unlink } from 'node:fs/promises';
+import { mkdir, open, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
+import {
+  atomicPrivateJson,
+  withLeaseMutex,
+  developmentRoot,
+} from './development-files';
 import {
   developerEventSchema,
   developerSnapshotSchema,
@@ -20,33 +25,45 @@ import type {
 
 export interface DevelopmentStore {
   claim(approvalId: string): Promise<void>;
-  save(snapshot: DeveloperSnapshot, callId: string | null): Promise<void>;
+  save(
+    snapshot: DeveloperSnapshot,
+    callId: string | null,
+    owner?: { developerId: string; approvalId: string; processId: number },
+  ): Promise<void>;
   release(): Promise<void>;
 }
-export function diskDevelopmentStore(root = process.cwd()): DevelopmentStore {
+export function diskDevelopmentStore(
+  root = developmentRoot(),
+): DevelopmentStore {
   const dir = join(root, '.local', 'maya');
   return {
     async claim(id) {
-      await mkdir(dir, { recursive: true, mode: 0o700 });
-      const lock = await open(join(dir, 'active.lock'), 'wx', 0o600);
-      await lock.close();
-      try {
-        const used = await open(join(dir, `approval-${id}.used`), 'wx', 0o600);
-        await used.close();
-      } catch (error) {
-        await unlink(join(dir, 'active.lock'));
-        throw error;
-      }
+      return withLeaseMutex(dir, async () => {
+        await mkdir(dir, { recursive: true, mode: 0o700 });
+        const lock = await open(join(dir, 'active.lock'), 'wx', 0o600);
+        await lock.close();
+        try {
+          const used = await open(
+            join(dir, `approval-${id}.used`),
+            'wx',
+            0o600,
+          );
+          await used.close();
+        } catch (error) {
+          await unlink(join(dir, 'active.lock'));
+          throw error;
+        }
+      });
     },
-    async save(snapshot, callId) {
-      await writeFile(
-        join(dir, `${snapshot.id}.json`),
-        JSON.stringify({ snapshot, callId }),
-        { mode: 0o600 },
-      );
+    async save(snapshot, callId, owner) {
+      await atomicPrivateJson(join(dir, `${snapshot.id}.json`), {
+        snapshot,
+        callId,
+        ...(owner ? { owner } : {}),
+      });
     },
     async release() {
-      await unlink(join(dir, 'active.lock'));
+      await withLeaseMutex(dir, () => unlink(join(dir, 'active.lock')));
     },
   };
 }
@@ -161,7 +178,11 @@ export class DevelopmentSession {
     });
   }
   private async save() {
-    await this.store.save(this.snapshot(), this.callId);
+    await this.store.save(this.snapshot(), this.callId, {
+      developerId: this.identity.userId,
+      approvalId: this.approval.approvalId,
+      processId: process.pid,
+    });
   }
   async run<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.queue.then(operation);
@@ -189,6 +210,9 @@ export class DevelopmentSession {
       this.attempted = true;
       const result = await this.transport.create(sdp);
       this.callId = result.callId;
+      this.event('call_created', {
+        callReference: result.callId ? 'controlled' : 'unknown',
+      });
       await this.save();
       if (this.status !== 'active' || this.now() >= this.stopAt) {
         await this.transport.hangup(result.callId);
@@ -546,6 +570,20 @@ export class DevelopmentSession {
   heartbeat() {
     this.lastHeartbeat = this.now();
   }
+  async diagnostic(detail: {
+    stage: string;
+    peerState: string;
+    channelState: string;
+    microphoneStopped: boolean;
+  }) {
+    if (this.events.length >= 180) return this.snapshot();
+    this.event('connection_diagnostic', {
+      ...detail,
+      source: 'browser_report_not_authorization',
+    });
+    await this.save();
+    return this.snapshot();
+  }
   async tick() {
     if (['ended', 'abandoned'].includes(this.status)) return;
     if (
@@ -570,12 +608,28 @@ export class DevelopmentSession {
     this.stopAt = Math.min(this.stopAt, this.now());
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
-    this.connection?.close();
+    const connection = this.connection;
     this.connection = null;
+    this.queuedResponse = null;
     this.event(reason, detail);
     if (reason === 'provider_failure') this.metric.failures++;
-    this.stopping = (async () => {
+    // Assign the idempotency promise before SDK callbacks can reenter cleanup.
+    this.stopping = Promise.resolve().then(async () => {
       try {
+        if (connection) {
+          try {
+            if (this.activeResponse)
+              connection.send({ type: 'response.cancel' });
+            connection.send({ type: 'output_audio_buffer.clear' });
+          } catch {
+            /* A failed cancel must not prevent hangup. */
+          }
+          try {
+            connection.close();
+          } catch {
+            /* Continue provider cleanup. */
+          }
+        }
         if (this.callId) await this.transport.hangup(this.callId);
         else if (this.attempted)
           throw new Error('Unknown provider call requires operational review.');
@@ -586,7 +640,7 @@ export class DevelopmentSession {
         this.metric.terminationConfirmed = false;
         await this.save(); /* Retain concurrency lock; fail closed after uncertain termination. */
       }
-    })();
+    });
     return this.stopping;
   }
 }

@@ -261,6 +261,7 @@ it('serialized provider operations wait for response completion before speaking 
   ).toHaveLength(2);
   expect(f.session.snapshot().events.map((e) => e.kind)).toEqual([
     'started',
+    'call_created',
     'connected',
     'tool_proposed',
     'tool_validated',

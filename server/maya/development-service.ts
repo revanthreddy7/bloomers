@@ -77,7 +77,14 @@ export async function developerOperation(origin: string, raw: unknown) {
     else if (request.action === 'stop') await session.stop('ended');
     else if (request.action === 'interrupt') await session.interrupt();
     else if (request.action === 'heartbeat') session.heartbeat();
-    else if (request.action === 'ack')
+    else if (request.action === 'diagnostic') {
+      return session.diagnostic({
+        stage: request.stage,
+        peerState: request.peerState,
+        channelState: request.channelState,
+        microphoneStopped: request.microphoneStopped,
+      });
+    } else if (request.action === 'ack')
       return session.acknowledge(
         request.turnId,
         request.responseId,

@@ -29,6 +29,7 @@ vi.mock('openai/realtime/ws', () => ({
   },
 }));
 import { openAITransport } from '@/server/maya/development-transport';
+import OpenAI from 'openai';
 beforeEach(() => {
   vi.clearAllMocks();
   mock.sockets.length = 0;
@@ -54,13 +55,24 @@ it('classifies sideband failures without logging raw SDK messages', async () => 
       'error',
       new Error('Unexpected server response: 503 sk-private-key'),
     );
-    expect(JSON.parse(log.mock.calls[0][0])).toEqual({
-      event: 'maya_sideband_failure',
-      category: 'http_handshake',
-      httpStatus: 503,
-    });
+    const failures = log.mock.calls.filter(
+      (c) => JSON.parse(c[0]).event === 'maya_sideband_failure',
+    );
+    expect(JSON.parse(failures[0][0])).toEqual(
+      expect.objectContaining({
+        event: 'maya_sideband_failure',
+        category: 'http_handshake',
+        httpStatus: 503,
+      }),
+    );
     socket.emit('error', new Error('could not send data: private prompt'));
-    expect(JSON.parse(log.mock.calls[1][0]).category).toBe('send');
+    expect(
+      JSON.parse(
+        log.mock.calls.filter(
+          (c) => JSON.parse(c[0]).event === 'maya_sideband_failure',
+        )[1][0],
+      ).category,
+    ).toBe('send');
     expect(JSON.stringify(log.mock.calls)).not.toMatch(/private|sk-/);
     expect(fail).toHaveBeenCalledWith({ stage: 'sideband_error' });
     connection.close();
@@ -75,16 +87,66 @@ it('keeps hangup failures visible without exposing the error message', async () 
       new Error('private provider response sk-secret'),
     );
     await expect(openAITransport().hangup('rtc_fake')).rejects.toThrow();
-    expect(JSON.parse(log.mock.calls[0][0])).toEqual({
-      event: 'maya_hangup_failure',
-      httpStatus: null,
-    });
+    expect(
+      JSON.parse(
+        log.mock.calls.find(
+          (c) => JSON.parse(c[0]).event === 'maya_hangup_failure',
+        )![0],
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        event: 'maya_hangup_failure',
+        httpStatus: null,
+      }),
+    );
     expect(JSON.stringify(log.mock.calls)).not.toMatch(/private|sk-/);
   } finally {
     log.mockRestore();
   }
 });
 afterEach(() => vi.unstubAllEnvs());
+it('attributes create rejection and HTTP 503 cleanup to safe provider/client request identifiers', async () => {
+  const log = vi.spyOn(console, 'info').mockImplementation(() => {});
+  const failure = (status: number, requestID: string) => {
+    const e = Object.assign(new Error('private response sk-secret'), {
+      status,
+      requestID,
+    });
+    Object.setPrototypeOf(e, OpenAI.APIError.prototype);
+    return e;
+  };
+  try {
+    mock.create.mockRejectedValueOnce(failure(401, 'req_create_failure'));
+    const transport = openAITransport();
+    await expect(transport.create('fake-sdp')).rejects.toThrow();
+    const create = JSON.parse(
+      log.mock.calls.find(
+        (c) => JSON.parse(c[0]).stage === 'create_failed',
+      )![0],
+    );
+    expect(create.httpStatus).toBe(401);
+    expect(create.providerRequestId).toBe('req_create_failure');
+    expect(mock.create.mock.calls[0][1].headers['X-Client-Request-Id']).toBe(
+      create.attemptId,
+    );
+    mock.hangup.mockRejectedValueOnce(failure(503, 'req_cleanup_failure'));
+    await expect(transport.hangup('rtc_fake')).rejects.toThrow();
+    const cleanup = JSON.parse(
+      log.mock.calls.find(
+        (c) => JSON.parse(c[0]).event === 'maya_hangup_failure',
+      )![0],
+    );
+    expect(cleanup.httpStatus).toBe(503);
+    expect(cleanup.providerRequestId).toBe('req_cleanup_failure');
+    expect(cleanup.callReference).toMatch(/^[a-f0-9]{16}$/);
+    expect(mock.hangup).toHaveBeenCalledOnce();
+    expect(JSON.stringify(log.mock.calls)).not.toMatch(
+      /sk-secret|private response|rtc_fake/,
+    );
+  } finally {
+    log.mockRestore();
+  }
+});
 it('uses the documented unified interface and pinned model without returning API credentials', async () => {
   const transport = openAITransport();
   expect(await transport.create('fake-sdp')).toEqual({
@@ -101,6 +163,9 @@ it('uses the documented unified interface and pinned model without returning API
         tracing: null,
         tools: [expect.objectContaining({ name: 'teach_step' })],
       }),
+    }),
+    expect.objectContaining({
+      headers: { 'X-Client-Request-Id': expect.any(String) },
     }),
   );
   const session = mock.create.mock.calls[0][0].session;
@@ -123,12 +188,21 @@ it('attaches a bounded authenticated sideband and uses the documented hangup ope
     connection = await transport.attach('rtc_fake', vi.fn(), vi.fn());
   expect(mock.sockets[0]).toHaveProperty('config', {
     callID: 'rtc_fake',
-    options: { handshakeTimeout: 5000, maxPayload: 100000 },
+    options: {
+      handshakeTimeout: 5000,
+      maxPayload: 100000,
+      headers: { 'X-Client-Request-Id': expect.any(String) },
+    },
   });
   connection.send({ type: 'response.cancel' });
   connection.close();
   await transport.hangup('rtc_fake');
-  expect(mock.hangup).toHaveBeenCalledWith('rtc_fake');
+  expect(mock.hangup).toHaveBeenCalledWith(
+    'rtc_fake',
+    expect.objectContaining({
+      headers: { 'X-Client-Request-Id': expect.any(String) },
+    }),
+  );
 });
 it('records only allowlisted error metadata, excluding provider messages and identifiers', async () => {
   const log = vi.spyOn(console, 'info').mockImplementation(() => {});
@@ -151,11 +225,19 @@ it('records only allowlisted error metadata, excluding provider messages and ide
       },
     };
     socket.emit('event', error);
-    expect(JSON.parse(log.mock.calls[0][0])).toEqual({
-      event: 'maya_provider_failure',
-      code: 'invalid_value',
-      param: 'response.max_output_tokens',
-    });
+    expect(
+      JSON.parse(
+        log.mock.calls.find(
+          (c) => JSON.parse(c[0]).event === 'maya_provider_failure',
+        )![0],
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        event: 'maya_provider_failure',
+        code: 'invalid_value',
+        param: 'response.max_output_tokens',
+      }),
+    );
     socket.emit('event', {
       ...error,
       error: {

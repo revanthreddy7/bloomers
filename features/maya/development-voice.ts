@@ -10,6 +10,7 @@ export class DevelopmentVoice {
   private abort: AbortController | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private poll: ReturnType<typeof setInterval> | null = null;
+  private readiness: { cancel: () => void } | null = null;
   private sessionId: string | null = null;
   private playback = new Set<string>();
   private acknowledged = new Set<string>();
@@ -25,7 +26,9 @@ export class DevelopmentVoice {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(value),
-      signal: AbortSignal.timeout(10000),
+      signal: this.abort
+        ? AbortSignal.any([this.abort.signal, AbortSignal.timeout(10000)])
+        : AbortSignal.timeout(10000),
     });
     if (!response.ok) throw new Error('Developer operation rejected.');
     return response.json();
@@ -121,6 +124,14 @@ export class DevelopmentVoice {
         return;
       }
       await peer.setRemoteDescription({ type: 'answer', sdp: result.sdp });
+      await this.post({
+        action: 'diagnostic',
+        sessionId: this.sessionId,
+        stage: 'answer_applied',
+        peerState: peer.connectionState,
+        channelState: channel.readyState,
+        microphoneStopped: false,
+      });
       await new Promise<void>((resolve, reject) => {
         const began = Date.now();
         const interval = setInterval(() => {
@@ -130,20 +141,36 @@ export class DevelopmentVoice {
             ['failed', 'closed'].includes(peer.connectionState)
           ) {
             clearInterval(interval);
+            this.readiness = null;
             reject(new Error('Connection stopped or timed out.'));
           } else if (
             peer.connectionState === 'connected' &&
             channel.readyState === 'open'
           ) {
             clearInterval(interval);
+            this.readiness = null;
             resolve();
           }
         }, 50);
+        this.readiness = {
+          cancel: () => {
+            clearInterval(interval);
+            reject(new Error('Connection explicitly stopped.'));
+          },
+        };
         channel.onclose = () => {
           void this.stop();
         };
       });
       if (generation !== this.generation) return;
+      await this.post({
+        action: 'diagnostic',
+        sessionId: this.sessionId,
+        stage: 'peer_connected',
+        peerState: peer.connectionState,
+        channelState: channel.readyState,
+        microphoneStopped: false,
+      });
       const ready = developerSnapshotSchema.parse(
         await this.post({ action: 'ready', sessionId: this.sessionId }),
       );
@@ -245,6 +272,8 @@ export class DevelopmentVoice {
   private cleanup() {
     this.paused = false;
     this.generation++;
+    this.readiness?.cancel();
+    this.readiness = null;
     this.abort?.abort();
     this.abort = null;
     if (this.timer) clearTimeout(this.timer);
@@ -283,6 +312,15 @@ export class DevelopmentVoice {
             await this.post({ action: 'stop', sessionId: id }),
           ),
         );
+        // Cleanup telemetry must never delay the remote stop request.
+        await this.post({
+          action: 'diagnostic',
+          sessionId: id,
+          stage: 'local_cleanup',
+          peerState: 'closed',
+          channelState: 'closed',
+          microphoneStopped: true,
+        }).catch(() => {});
       } catch {
         this.state(
           'interrupted',

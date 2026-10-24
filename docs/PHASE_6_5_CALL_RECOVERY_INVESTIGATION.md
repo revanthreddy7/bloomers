@@ -43,3 +43,7 @@ For this call, use bounded, spaced existing-call hangup checks; a successful doc
 Engineering follow-up: retain sanitized SDK error categories and HTTP status, add per-operation client request IDs/provider request IDs for support correlation, and record browser resource cleanup evidence. Add a bounded operator-only cleanup workflow that distinguishes acknowledged hangup, inferred expiry and unresolved termination. It must never create a call, issue approval or automatically release an uncertain lease. These recommendations do not activate live testing. A new experiment remains separately founder-approved after recovery and connection diagnosis.
 
 This investigation changes documentation only. Source cleanup and existing mock tests were reviewed; no new mock result is presented as direct verification of the founder's audio session.
+
+## Recovery implementation follow-up
+
+The original evidence above remains historical. The 60-minute lifetime plus a ten-minute margin has now elapsed. The new [recovery runbook](MAYA_SESSION_RECOVERY.md) implements authenticated owner acknowledgment and an audited `expired_by_policy_remote_termination_unconfirmed` classification, preserving the original journal and uncertainty. The conservative recovery boundary uses the later server connection timestamp (11:05:44 AM Pacific on October 12), rather than the pre-call start timestamp. Trusted evidence for this incident is prepared; the real lock awaits the owner’s authenticated acknowledgment. No new provider call or cleanup retry was made during implementation.

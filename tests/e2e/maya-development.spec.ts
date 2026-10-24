@@ -46,6 +46,16 @@ test('ordinary authenticated parent cannot activate the synthetic developer path
   });
   expect(denied.status()).toBe(403);
   expect(denied.headers()['cache-control']).toContain('no-store');
+  const recovery = await page.request.post('/developer/maya/recovery', {
+    headers: { Origin: 'http://localhost:3000' },
+    data: {
+      sessionId: randomUUID(),
+      acknowledgeRemoteTerminationUnconfirmed: true,
+      confirmLocalResourcesClosed: true,
+    },
+  });
+  expect(recovery.status()).toBe(403);
+  expect(recovery.headers()['cache-control']).toContain('no-store');
   const guessed = await page.request.get(
     `/developer/maya/session?id=${randomUUID()}`,
   );
@@ -206,7 +216,7 @@ if (process.env.MAYA_DEV_BROWSER_FIXTURE) {
       });
     });
     await page.route('https://api.openai.com/**', (route) => route.abort());
-    await page.getByRole('checkbox').check();
+    await page.getByRole('checkbox').last().check();
     await expect(
       page.getByRole('button', { name: 'Start approved voice test' }),
     ).toBeEnabled();
@@ -233,6 +243,60 @@ if (process.env.MAYA_DEV_BROWSER_FIXTURE) {
     ).toBeVisible();
     expect(actions).toContain('stop');
   });
+  test('verified developer acknowledges expired recovery and cannot authorize another paid call', async ({
+    page,
+  }) => {
+    const fixture = JSON.parse(
+      readFileSync(process.env.MAYA_DEV_BROWSER_FIXTURE!, 'utf8'),
+    ) as { email: string; password: string; recoveryId: string };
+    await page.goto('/auth/sign-in');
+    await page.getByLabel('Email address').fill(fixture.email);
+    await page.getByLabel('Password', { exact: true }).fill(fixture.password);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page).toHaveURL(/\/parent$/);
+    await page.goto('/developer/maya');
+    const scope = page.getByRole('region', {
+      name: 'Expired-session recovery',
+    });
+    await expect(
+      scope.getByRole('button', { name: 'Recover expired session' }),
+    ).toBeDisabled();
+    const rejected = await page.request.post('/developer/maya/recovery', {
+      headers: { Origin: 'http://localhost:3000' },
+      data: {
+        sessionId: fixture.recoveryId,
+        acknowledgeRemoteTerminationUnconfirmed: false,
+        confirmLocalResourcesClosed: true,
+      },
+    });
+    expect(rejected.status()).toBe(403);
+    await scope.getByRole('checkbox').check();
+    await scope
+      .getByRole('button', { name: 'Recover expired session' })
+      .click();
+    await expect(scope.getByRole('status')).toContainText(
+      'Remote termination remains unconfirmed',
+    );
+    const retry = await page.request.post('/developer/maya/recovery', {
+      headers: { Origin: 'http://localhost:3000' },
+      data: {
+        sessionId: fixture.recoveryId,
+        acknowledgeRemoteTerminationUnconfirmed: true,
+        confirmLocalResourcesClosed: true,
+      },
+    });
+    expect(retry.status()).toBe(200);
+    expect((await retry.json()).providerTerminationConfirmed).toBe(false);
+    await page.reload();
+    await expect(
+      page.getByText(
+        'Recovery already recorded. No live approval has been issued.',
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Start approved voice test' }),
+    ).toBeDisabled();
+  });
   test('operator-allowlisted synthetic developer can inspect the classroom with capture and billable start disabled', async ({
     page,
   }) => {
@@ -256,7 +320,7 @@ if (process.env.MAYA_DEV_BROWSER_FIXTURE) {
       page.getByRole('heading', { name: 'Maya developer classroom' }),
     ).toBeVisible();
     await expect(page.getByRole('status')).toContainText('Microphone OFF');
-    await page.getByRole('checkbox').check();
+    await page.getByRole('checkbox').last().check();
     await expect(
       page.getByRole('button', { name: 'Start approved voice test' }),
     ).toBeDisabled();

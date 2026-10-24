@@ -68,6 +68,21 @@ export const developerRequestSchema = z.discriminatedUnion('action', [
     responseId: z.string().min(1).max(200),
     epoch: z.number().int().nonnegative(),
   }),
+  z.strictObject({
+    action: z.literal('diagnostic'),
+    sessionId: z.uuid(),
+    stage: z.enum(['answer_applied', 'peer_connected', 'local_cleanup']),
+    peerState: z.enum([
+      'new',
+      'connecting',
+      'connected',
+      'disconnected',
+      'failed',
+      'closed',
+    ]),
+    channelState: z.enum(['connecting', 'open', 'closing', 'closed']),
+    microphoneStopped: z.boolean(),
+  }),
 ]);
 export const developerEventSchema = z.strictObject({
   id: z.uuid(),
@@ -79,6 +94,8 @@ export const developerEventSchema = z.strictObject({
   kind: z.enum([
     'started',
     'connected',
+    'call_created',
+    'connection_diagnostic',
     'paused',
     'resumed',
     'tool_proposed',
