@@ -629,3 +629,88 @@ textarea {
   padding-top: 1rem;
   margin-top: 1rem;
 }
+
+/* Minimal call layout; media remains adult-only and camera stays disabled. */
+.maya-call-shell {
+  max-width: 1440px;
+}
+.maya-call-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  gap: 1rem;
+}
+.maya-participants {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+.maya-participant {
+  padding: 1rem;
+  border: 1px solid var(--border, #ccd3d9);
+  border-radius: 12px;
+  background: #eef3f5;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.maya-participant h2 {
+  font-size: 1rem;
+}
+.maya-initial {
+  display: inline-grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #d6e6e2;
+  color: #163e36;
+  font-weight: 700;
+}
+.maya-board-stage {
+  min-width: 0;
+}
+.maya-board-stage .whiteboard {
+  width: 100%;
+  min-height: 300px;
+  background: white;
+  border: 1px solid #ccd3d9;
+}
+.maya-board-stage .whiteboard[hidden] {
+  display: none;
+}
+.maya-call-controls {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  padding: 0.75rem;
+  background: #fff;
+  border: 1px solid #ccd3d9;
+  border-radius: 10px;
+}
+.maya-call-controls button {
+  min-height: 44px;
+}
+.maya-call-shell pre {
+  max-width: 100%;
+  overflow: auto;
+}
+@media (max-width: 700px) {
+  .maya-call-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .maya-participants {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .maya-participant {
+    padding: 0.65rem;
+  }
+  .maya-initial {
+    width: 44px;
+    height: 44px;
+  }
+  .maya-board-stage .whiteboard {
+    min-height: 240px;
+  }
+  .maya-call-controls {
+    gap: 0.5rem;
+  }
+}

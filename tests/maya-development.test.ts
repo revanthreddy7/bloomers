@@ -43,7 +43,11 @@ const env: Record<string, string | undefined> = {
   NODE_ENV: 'development',
   MAYA_DEV_USER_IDS: userId,
   MAYA_DEV_ENABLED: '1',
-  MAYA_DEV_APPROVAL: JSON.stringify(approval),
+  MAYA_DEV_APPROVAL: JSON.stringify({
+    ...approval,
+    model: 'gpt-live-1',
+    backendModel: 'gpt-5.6-terra',
+  }),
   OPENAI_API_KEY: 'fake-never-used',
   MAYA_DEV_ORIGIN: 'http://localhost:3000',
 };

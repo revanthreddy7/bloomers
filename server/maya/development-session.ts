@@ -76,23 +76,23 @@ type Pending = {
 };
 export class DevelopmentSession {
   readonly id = randomUUID();
-  private readonly startedAt: number;
-  private stopAt: number;
-  private events: DeveloperSnapshot['events'] = [];
-  private epoch = 0;
-  private status: DeveloperSnapshot['status'] = 'active';
-  private pending: Pending | null = null;
+  protected readonly startedAt: number;
+  protected stopAt: number;
+  protected events: DeveloperSnapshot['events'] = [];
+  protected epoch = 0;
+  protected status: DeveloperSnapshot['status'] = 'active';
+  protected pending: Pending | null = null;
   private connection: DevelopmentConnection | null = null;
-  private callId: string | null = null;
+  protected callId: string | null = null;
   private attempted = false;
   private stopping: Promise<void> | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
-  private lastHeartbeat: number;
+  protected lastHeartbeat: number;
   private lastRequestAt: number;
   private responses = new Set<string>();
   private calls = new Set<string>();
   private completed = new Map<string, { responseId: string; epoch: number }>();
-  private board = new Map<
+  protected board = new Map<
     string,
     z.infer<typeof mayaCommandSchema>['action']
   >();
@@ -106,7 +106,7 @@ export class DevelopmentSession {
   private queuedResponse: { instructions: string; speakOnly: boolean } | null =
     null;
   private queue = Promise.resolve();
-  private metric: DeveloperSnapshot['metrics'] = {
+  protected metric: DeveloperSnapshot['metrics'] = {
     durationMs: 0,
     firstAudioMs: null,
     boardLatencyMs: [],
@@ -123,10 +123,10 @@ export class DevelopmentSession {
   };
   constructor(
     readonly identity: DeveloperIdentity,
-    private readonly approval: z.infer<typeof approvalSchema>,
+    protected readonly approval: z.infer<typeof approvalSchema>,
     private readonly transport: DevelopmentTransport,
     private readonly store: DevelopmentStore,
-    private readonly now: () => number = Date.now,
+    protected readonly now: () => number = Date.now,
   ) {
     this.startedAt = now();
     this.lastHeartbeat = now();
@@ -136,7 +136,7 @@ export class DevelopmentSession {
       Date.parse(approval.expiresAt),
     );
   }
-  private event(
+  protected event(
     kind: DeveloperSnapshot['events'][number]['kind'],
     payload: Record<string, unknown> = {},
   ) {
@@ -177,7 +177,7 @@ export class DevelopmentSession {
       },
     });
   }
-  private async save() {
+  protected async save() {
     await this.store.save(this.snapshot(), this.callId, {
       developerId: this.identity.userId,
       approvalId: this.approval.approvalId,
@@ -584,12 +584,15 @@ export class DevelopmentSession {
     await this.save();
     return this.snapshot();
   }
+  protected hasProviderConnection() {
+    return !!this.connection;
+  }
   async tick() {
     if (['ended', 'abandoned'].includes(this.status)) return;
     if (
       this.now() >= this.stopAt ||
       this.now() - this.lastHeartbeat > 15000 ||
-      (!this.connection && this.now() - this.startedAt > 15000) ||
+      (!this.hasProviderConnection() && this.now() - this.startedAt > 15000) ||
       this.events.length >= 180 ||
       ((this.activeResponse || this.awaitingResponse) &&
         this.now() - this.lastRequestAt > 30000) ||

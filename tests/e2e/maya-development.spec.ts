@@ -71,10 +71,18 @@ if (process.env.MAYA_DEV_BROWSER_FIXTURE) {
     ) as { email: string; password: string };
     await page.addInitScript(() => {
       sessionStorage.removeItem('maya-development-session');
+      const cleanup = {
+        track: false,
+        peer: false,
+        channel: false,
+        audio: false,
+      };
+      Object.defineProperty(window, '__mayaCleanup', { value: cleanup });
       const track = {
         enabled: true,
         stop: () => {
           track.enabled = false;
+          cleanup.track = true;
         },
       };
       const channel = {
@@ -85,11 +93,12 @@ if (process.env.MAYA_DEV_BROWSER_FIXTURE) {
         send: () => {},
         close: () => {
           channel.readyState = 'closed';
+          cleanup.channel = true;
         },
       };
       class FakePeer {
         connectionState = 'connected';
-        ontrack = null;
+        ontrack: null | ((e: { streams: MediaStream[] }) => void) = null;
         onconnectionstatechange = null;
         addTrack() {}
         createDataChannel() {
@@ -100,6 +109,10 @@ if (process.env.MAYA_DEV_BROWSER_FIXTURE) {
         }
         async setLocalDescription() {}
         async setRemoteDescription() {
+          this.ontrack?.({ streams: [new MediaStream()] });
+          channel.onmessage?.({
+            data: JSON.stringify({ type: 'session.started' }),
+          });
           setTimeout(
             () =>
               channel.onmessage?.({
@@ -113,6 +126,7 @@ if (process.env.MAYA_DEV_BROWSER_FIXTURE) {
         }
         close() {
           this.connectionState = 'closed';
+          cleanup.peer = true;
         }
       }
       Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
@@ -122,6 +136,25 @@ if (process.env.MAYA_DEV_BROWSER_FIXTURE) {
         }),
       });
       Object.defineProperty(window, 'RTCPeerConnection', { value: FakePeer });
+      Object.defineProperty(window, 'AudioContext', {
+        value: class {
+          createMediaStreamSource() {
+            return { connect() {} };
+          }
+          createAnalyser() {
+            return {
+              fftSize: 256,
+              getFloatTimeDomainData(values: Float32Array) {
+                values.fill(0.1);
+              },
+            };
+          }
+          async resume() {}
+          async close() {
+            cleanup.audio = true;
+          }
+        },
+      });
       HTMLMediaElement.prototype.play = async () => {};
       HTMLMediaElement.prototype.pause = () => {};
     });
@@ -202,6 +235,18 @@ if (process.env.MAYA_DEV_BROWSER_FIXTURE) {
           },
         });
       }
+      if (request.action === 'ink')
+        snapshot.events.push({
+          id: randomUUID(),
+          lessonId: id,
+          sequence: snapshot.events.length + 1,
+          epoch: snapshot.epoch,
+          protocolVersion: 1,
+          source: 'maya_development',
+          kind: 'student_ink',
+          payload: { commandId: request.commandId, stroke: request.stroke },
+          createdAt: new Date().toISOString(),
+        });
       if (request.action === 'pause') snapshot.status = 'paused';
       if (request.action === 'resume') snapshot.status = 'active';
       if (request.action === 'stop') {
@@ -223,7 +268,12 @@ if (process.env.MAYA_DEV_BROWSER_FIXTURE) {
     await page
       .getByRole('button', { name: 'Start approved voice test' })
       .click();
-    await expect(page.getByRole('status')).toContainText('Microphone active');
+    await expect(page.getByRole('status')).toContainText(
+      'Connection connected',
+    );
+    await expect(
+      page.getByRole('region', { name: 'Maya teacher tile' }),
+    ).toContainText('Speaking');
     await expect(
       page.getByRole('img', { name: 'Synthetic shared mathematics board' }),
     ).toContainText('−3 + 7');
@@ -232,6 +282,45 @@ if (process.env.MAYA_DEV_BROWSER_FIXTURE) {
     await expect(
       page.getByRole('button', { name: /Next|Continue/ }),
     ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Camera off', exact: true }),
+    ).toBeDisabled();
+    await page
+      .getByRole('button', { name: 'Mute microphone', exact: true })
+      .click();
+    await expect(page.getByRole('status')).toContainText('Microphone muted');
+    await page
+      .getByRole('button', { name: 'Unmute microphone', exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: 'Hide whiteboard', exact: true })
+      .click();
+    await expect(
+      page.getByRole('img', { name: 'Synthetic shared mathematics board' }),
+    ).toBeHidden();
+    await page
+      .getByRole('button', { name: 'Show whiteboard', exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: 'Draw on board', exact: true })
+      .click();
+    const board = page.getByRole('img', {
+      name: 'Synthetic shared mathematics board',
+    });
+    const bounds = (await board.boundingBox())!;
+    await page.mouse.move(
+      bounds.x + bounds.width * 0.3,
+      bounds.y + bounds.height * 0.3,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      bounds.x + bounds.width * 0.4,
+      bounds.y + bounds.height * 0.4,
+      { steps: 3 },
+    );
+    await page.mouse.up();
+    await expect.poll(() => actions.includes('ink')).toBe(true);
+    await expect(board.locator('polyline')).toHaveCount(2);
     await page.getByRole('button', { name: 'Pause lesson' }).click();
     await expect(page.getByRole('status')).toContainText('Microphone OFF');
     await page.getByRole('button', { name: 'Resume lesson' }).click();
@@ -242,6 +331,13 @@ if (process.env.MAYA_DEV_BROWSER_FIXTURE) {
       page.getByText('Session ended.', { exact: false }),
     ).toBeVisible();
     expect(actions).toContain('stop');
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => Object.getOwnPropertyDescriptor(window, '__mayaCleanup')?.value,
+        ),
+      )
+      .toEqual({ track: true, peer: true, channel: true, audio: true });
   });
   test('verified developer acknowledges expired recovery and cannot authorize another paid call', async ({
     page,

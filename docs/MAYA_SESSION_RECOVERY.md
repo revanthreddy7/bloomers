@@ -1,5 +1,7 @@
 # Maya expired-session recovery runbook
 
+**Current model decision:** the next paid test uses GPT-Live with a separately scoped backend, not the historical Realtime configuration below. See [GPT-Live classroom and approval instructions](MAYA_GPT_LIVE.md). Old incident recovery evidence remains unchanged.
+
 This is local operational recovery for a failed adult Realtime WebRTC experiment. Recovery does not confirm provider termination, reconstruct usage, issue approval or create a call. It cannot authorize child use. Keep `MAYA_DEV_ENABLED=0` and `MAYA_DEV_APPROVAL=` until a separately approved test is ready.
 
 ## Evidence and timing

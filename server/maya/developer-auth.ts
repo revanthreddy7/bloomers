@@ -6,7 +6,8 @@ export const approvalSchema = z.strictObject({
   approvalId: z.uuid(),
   developerId: z.uuid(),
   fixture: z.literal('grade8-adult-v2'),
-  model: z.literal('gpt-realtime-2.1'),
+  model: z.enum(['gpt-realtime-2.1', 'gpt-live-1']),
+  backendModel: z.literal('gpt-5.6-terra').optional(),
   expiresAt: z.iso.datetime(),
   durationSeconds: z.number().int().min(15).max(300),
   budgetCents: z.number().int().min(1).max(200),
@@ -48,6 +49,8 @@ export function liveApproval(
     JSON.parse(env.MAYA_DEV_APPROVAL ?? '{}'),
   );
   if (
+    approval.model !== 'gpt-live-1' ||
+    approval.backendModel !== 'gpt-5.6-terra' ||
     approval.developerId !== identity.userId ||
     Date.parse(approval.expiresAt) <= now ||
     Date.parse(approval.expiresAt) > now + 3600000

@@ -9,17 +9,32 @@ import type { DeveloperSnapshot } from '@/features/maya/development';
 import { teachingScenarios } from '@/features/maya/evaluation';
 import {
   mayaCommandSchema,
+  normalizePoint,
+  studentCommandSchema,
+  type Point,
   type MayaScene,
 } from '@/features/classroom/protocol';
 import { MayaBoard } from './teaching';
 import type { DevelopmentVoiceState } from '@/features/maya/development-voice';
-export function DevelopmentRoom({ ready }: { ready: boolean }) {
+export function DevelopmentRoom({
+  ready,
+  blockedReason,
+}: {
+  ready: boolean;
+  blockedReason?: string;
+}) {
   const audio = useRef<HTMLAudioElement>(null),
     voice = useRef<DevelopmentVoice | null>(null);
   const [state, setState] = useState<DevelopmentVoiceState>('off'),
     [snapshot, setSnapshot] = useState<DeveloperSnapshot | null>(null),
     [optIn, setOptIn] = useState(false),
-    [error, setError] = useState('');
+    [error, setError] = useState(''),
+    [microphoneMuted, setMicrophoneMuted] = useState(false),
+    [boardVisible, setBoardVisible] = useState(true),
+    [pen, setPen] = useState(false),
+    [draft, setDraft] = useState<Point[]>([]);
+  const pointer = useRef<number | null>(null);
+  const ink = useRef<Point[]>([]);
   useEffect(() => {
     voice.current = new DevelopmentVoice(audio.current!, setState, setSnapshot);
     const saved = sessionStorage.getItem('maya-development-session');
@@ -69,30 +84,177 @@ export function DevelopmentRoom({ ready }: { ready: boolean }) {
   async function start() {
     setError('');
     try {
-      await voice.current?.start(optIn);
+      await voice.current?.start(optIn, 'live');
     } catch {
       setError(
-        'Live connection failed. Check the experiment telemetry below; do not retry until provider termination and a new approval are confirmed.',
+        'Maya could not connect. Your microphone has been closed. Check cleanup before requesting another approved test; this approval cannot be reused.',
       );
     }
   }
   return (
-    <main className="identity-shell">
+    <main className="identity-shell maya-call-shell">
       <h1>Maya developer classroom</h1>
       <p>
         Adult-operated synthetic experiment · {syntheticLesson.fixture} · OpenAI
-        gpt-realtime-2.1 · No student records or learning updates
+        gpt-live-1 · No student records or learning updates
       </p>
-      <h2>{syntheticLesson.objective}</h2>
+      <div className="maya-call-layout">
+        <aside
+          className="maya-participants"
+          aria-label="Classroom participants"
+        >
+          <section className="maya-participant" aria-label="Maya teacher tile">
+            <span className="maya-initial" aria-hidden="true">
+              M
+            </span>
+            <h2>Maya · AI teacher</h2>
+            <p>
+              {state === 'speaking'
+                ? 'Speaking'
+                : state === 'thinking'
+                  ? 'Thinking'
+                  : state === 'listening'
+                    ? 'Listening'
+                    : state === 'paused'
+                      ? 'Paused'
+                      : state === 'permission'
+                        ? 'Waiting for microphone permission'
+                        : state === 'connecting'
+                          ? 'Connecting'
+                          : 'Not connected'}
+            </p>
+          </section>
+          <section className="maya-participant" aria-label="Adult tester tile">
+            <span className="maya-initial" aria-hidden="true">
+              You
+            </span>
+            <h2>You · Adult tester</h2>
+            <p>Camera off</p>
+            <p>Camera preview awaits approved consent and access safeguards.</p>
+          </section>
+        </aside>
+        <section
+          className="maya-board-stage"
+          aria-label="Shared lesson whiteboard"
+        >
+          <h2>Grade 8 mathematics</h2>
+          <p>{syntheticLesson.objective}</p>
+          <button
+            aria-pressed={pen}
+            disabled={snapshot?.status !== 'active'}
+            onClick={() => setPen(!pen)}
+          >
+            {pen ? 'Put pen down' : 'Draw on board'}
+          </button>
+          <svg
+            style={{ display: boardVisible ? undefined : 'none' }}
+            className="whiteboard"
+            viewBox="0 0 1000 650"
+            onPointerDown={(e) => {
+              if (
+                !pen ||
+                snapshot?.status !== 'active' ||
+                pointer.current !== null
+              )
+                return;
+              pointer.current = e.pointerId;
+              e.currentTarget.setPointerCapture(e.pointerId);
+              ink.current = [
+                normalizePoint(
+                  e.clientX,
+                  e.clientY,
+                  e.currentTarget.getBoundingClientRect(),
+                ),
+              ];
+              setDraft(ink.current);
+            }}
+            onPointerMove={(e) => {
+              if (pointer.current !== e.pointerId || ink.current.length >= 256)
+                return;
+              ink.current = [
+                ...ink.current,
+                normalizePoint(
+                  e.clientX,
+                  e.clientY,
+                  e.currentTarget.getBoundingClientRect(),
+                ),
+              ];
+              setDraft(ink.current);
+            }}
+            onPointerUp={(e) => {
+              if (pointer.current !== e.pointerId) return;
+              pointer.current = null;
+              e.currentTarget.releasePointerCapture(e.pointerId);
+              const points = ink.current;
+              ink.current = [];
+              setDraft([]);
+              if (points.length >= 2 && snapshot)
+                void voice.current
+                  ?.draw(
+                    {
+                      kind: 'stroke',
+                      payload: { points, color: '#263b36', width: 4 },
+                    },
+                    snapshot.epoch,
+                  )
+                  .catch(() =>
+                    setError(
+                      'Drawing was not saved. The lesson can continue; try speaking your answer.',
+                    ),
+                  );
+            }}
+            onPointerCancel={() => {
+              pointer.current = null;
+              ink.current = [];
+              setDraft([]);
+            }}
+            role="img"
+            aria-label="Synthetic shared mathematics board"
+          >
+            <MayaBoard scene={scene} />
+            {(snapshot?.events ?? [])
+              .filter((e) => e.kind === 'student_ink')
+              .map((e) => {
+                const stroke = studentCommandSchema.options[0].parse(
+                  e.payload.stroke,
+                ).payload;
+                return (
+                  <polyline
+                    key={e.id}
+                    points={stroke.points
+                      .map((p) => `${p.x * 1000},${p.y * 650}`)
+                      .join(' ')}
+                    fill="none"
+                    stroke={stroke.color}
+                    strokeWidth={stroke.width}
+                  />
+                );
+              })}
+            <polyline
+              points={draft.map((p) => `${p.x * 1000},${p.y * 650}`).join(' ')}
+              fill="none"
+              stroke="#263b36"
+              strokeWidth={4}
+            />
+          </svg>
+          {!boardVisible && (
+            <p>
+              The whiteboard is hidden on this device. Maya’s session continues.
+            </p>
+          )}
+        </section>
+      </div>
       <p role="status">
         Microphone{' '}
         {state === 'off' || state === 'interrupted' || state === 'paused'
           ? 'OFF'
-          : state === 'permission'
-            ? 'permission requested'
-            : 'active'}{' '}
+          : microphoneMuted
+            ? 'muted'
+            : state === 'permission'
+              ? 'permission requested'
+              : 'active'}{' '}
         · Maya {state} · Connection{' '}
-        {['listening', 'speaking', 'paused'].includes(state)
+        {['listening', 'speaking', 'thinking', 'paused'].includes(state)
           ? 'connected'
           : ['permission', 'connecting'].includes(state)
             ? 'connecting'
@@ -116,7 +278,35 @@ export function DevelopmentRoom({ ready }: { ready: boolean }) {
         Maya leads the conversation and board. Speak naturally; no Next or
         Continue is needed.
       </p>
-      <div className="maya-controls">
+      <div
+        className="maya-controls maya-call-controls"
+        aria-label="Call controls"
+      >
+        <button
+          disabled={
+            !['listening', 'speaking', 'thinking', 'paused'].includes(state)
+          }
+          aria-pressed={microphoneMuted}
+          onClick={() => {
+            const muted = !microphoneMuted;
+            setMicrophoneMuted(muted);
+            voice.current?.setMicrophoneMuted(muted);
+          }}
+        >
+          {microphoneMuted ? 'Unmute microphone' : 'Mute microphone'}
+        </button>
+        <button
+          disabled
+          title="Camera requires approved consent and access safeguards"
+        >
+          Camera off
+        </button>
+        <button
+          aria-pressed={boardVisible}
+          onClick={() => setBoardVisible(!boardVisible)}
+        >
+          {boardVisible ? 'Hide whiteboard' : 'Show whiteboard'}
+        </button>
         <button
           disabled={!ready || !optIn || state !== 'off' || !!snapshot}
           onClick={() => void start()}
@@ -162,33 +352,28 @@ export function DevelopmentRoom({ ready }: { ready: boolean }) {
       {!ready && (
         <p>
           Live connection disabled: current scoped approval and server
-          configuration required.
+          configuration required. {blockedReason}
         </p>
       )}
       {error && <p role="alert">{error}</p>}
       <audio ref={audio} />
-      <svg
-        className="whiteboard"
-        viewBox="0 0 1000 650"
-        role="img"
-        aria-label="Synthetic shared mathematics board"
-      >
-        <MayaBoard scene={scene} />
-      </svg>
-      <h2>Evaluation prompts</h2>
-      {Object.entries(teachingScenarios).map(([name, scenario]) => (
-        <section key={name}>
-          <h3>{name}</h3>
-          <p>{scenario.utterance}</p>
-          <p>{scenario.rubric.join(' · ')}</p>
-        </section>
-      ))}
+      <details>
+        <summary>Adult test prompts</summary>
+        {Object.entries(teachingScenarios).map(([name, scenario]) => (
+          <section key={name}>
+            <h3>{name}</h3>
+            <p>{scenario.utterance}</p>
+            <p>{scenario.rubric.join(' · ')}</p>
+          </section>
+        ))}
+      </details>
       <p>
         <a href="/parent">Return to parent mode</a>
       </p>
       {snapshot && (
-        <>
-          <h2>Experiment telemetry</h2>
+        <details open={['abandoned', 'ended'].includes(snapshot.status)}>
+          <summary>Experiment telemetry</summary>
+
           {snapshot.status === 'abandoned' && (
             <p role="alert">
               Provider connection failed. This approval has been consumed; a new
@@ -213,7 +398,7 @@ export function DevelopmentRoom({ ready }: { ready: boolean }) {
             sample alignment. Raw audio and conversations are not saved by the
             application.
           </p>
-        </>
+        </details>
       )}
     </main>
   );

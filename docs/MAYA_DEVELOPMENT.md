@@ -1,5 +1,7 @@
 # Adult-only Maya development checkpoint
 
+**Current model decision:** the next paid test uses GPT-Live with a separately scoped backend, not the historical Realtime configuration below. See [GPT-Live classroom and approval instructions](MAYA_GPT_LIVE.md). Old incident recovery evidence remains unchanged.
+
 Phase 6.5 supplies an internal `/developer/maya` console. It uses the versioned synthetic Grade 8 fixture `grade8-adult-v2` for conversational integer arithmetic and linear equations. Maya chooses examples and board actions from the discussion; no fixed sequence or Next/Continue button drives the live lesson. It does not load student profiles, enrollment pins, private answers, assessment evidence or homework records. The normal student preview remains the Phase 6 mock.
 
 ## Engineering validation without paid calls

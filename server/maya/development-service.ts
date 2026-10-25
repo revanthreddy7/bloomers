@@ -10,11 +10,12 @@ import {
   DevelopmentSession,
   diskDevelopmentStore,
 } from './development-session';
-import { openAITransport } from './development-transport';
+import { openAILiveTransport } from './live-transport';
+import { LiveDevelopmentSession, openAILiveReasoner } from './live-session';
 type Entry = {
   requestId: string;
   fingerprint: string;
-  session: DevelopmentSession;
+  session: DevelopmentSession | LiveDevelopmentSession;
   starting: Promise<unknown>;
 };
 const registryKey = Symbol.for('bloomers.maya.developer.sessions');
@@ -53,11 +54,12 @@ export async function developerOperation(origin: string, raw: unknown) {
       throw new Error(
         'Restart only after verified cleanup of local experiments.',
       );
-    const session = new DevelopmentSession(
+    const session = new LiveDevelopmentSession(
       identity,
       approval,
-      openAITransport(),
+      openAILiveTransport(),
       diskDevelopmentStore(),
+      openAILiveReasoner(),
     );
     const starting = session.start(request.sdp);
     sessions.set(session.id, {
@@ -71,6 +73,15 @@ export async function developerOperation(origin: string, raw: unknown) {
   const session = ownedDevelopmentSession(request.sessionId, identity);
   return session.run(async () => {
     await session.tick();
+    if (request.action === 'ink') {
+      if (!(session instanceof LiveDevelopmentSession))
+        throw new Error('Live drawing unavailable.');
+      return session.ink(
+        request.commandId,
+        request.expectedEpoch,
+        request.stroke,
+      );
+    }
     if (request.action === 'ready') return session.ready();
     else if (request.action === 'pause') return session.pause();
     else if (request.action === 'resume') return session.resume();

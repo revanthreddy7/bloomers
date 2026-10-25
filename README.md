@@ -195,3 +195,5 @@ For local enrollment investigation only, `ENROLLMENT_TRACE=1` emits stage/status
 The Stage B repair adds a browser-connected ready handshake, teacher-selected validated board actions, spoken-turn progression and pause/resume with retained deadline enforcement. Allowlisted adults see **Live Maya · adult test** in parent navigation; the student-preview classroom continues to use its labeled simulation. See [teaching repair verification](docs/PHASE_6_5_TEACHING_REPAIR.md) for executed checks and pending audible validation. Prior failed live attempts remain failures; a new paid adult test needs explicit approval.
 
 For a failed adult Realtime experiment with an uncertain hangup, follow the [Maya session recovery runbook](docs/MAYA_SESSION_RECOVERY.md). Policy expiry is distinct from provider-confirmed termination; recovery never authorizes a new paid call.
+
+The [GPT-Live classroom decision and launch guide](docs/MAYA_GPT_LIVE.md) documents the current adult-only voice/backend configuration, call layout, spending limits and fresh-approval gate.
